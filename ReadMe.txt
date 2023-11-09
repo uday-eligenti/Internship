@@ -82,3 +82,53 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - add desclaimer in inMemory
 - adjust alert height
 - adjust flip card links alignment
+
+-----------------------------------------------------------------------
+public async Task<CartContextDetails> GetUserContext(string salesOrderId)
+        {
+            if (salesOrderId == null)
+            {
+                throw new ArgumentNullException("Sales order ID cannot be null");
+            }
+
+            var salesOrder = await _salesOrderServiceRepository.GetSalesOrderAsync(salesOrderId);
+
+            if (salesOrder != null)
+            {
+                var cartOrQuoteId = salesOrder.References.FirstOrDefault()?.Target.Split("/").Last();
+
+                var cart = await _cartService.GetCartAsync(cartOrQuoteId); 
+
+                if (cart != null)
+                {
+                    return new CartContextDetails
+                    {
+                        CartOrQuoteId = cartOrQuoteId,
+                        Context = new FulfillmentChoiceContext()
+                        {
+                            Country = cart.CommerceContext?.Country,
+                            Currency = cart.CommerceContext?.Currency,
+                            Region = cart.CommerceContext?.Region,
+                            Segment = cart.CommerceContext?.Segment,
+                            CurrencyCultureInfo = $"{cart.CommerceContext?.Language}-{cart.CommerceContext?.Country}",
+                            CustomerSet = cart.CommerceContext?.CustomerSet,
+                            AccessGroup = cart.CommerceContext?.AccessGroup,
+                            SourceApplicationName = cart.CommerceContext?.SourceApplicationName,
+                            BusinessUnitId = cart.CommerceContext?.BusinessUnitId,
+                            CompanyNumber = cart.CommerceContext?.CompanyNumber,
+                            IsGop = cart.CommerceContext?.IsGOP ?? false                            
+                        }
+                    };
+                }
+            }
+            return default;
+        }
+test:
+  public async Task GetUserContext_ShouldReturnExpectedResponse_ForValidRequest()
+        {
+            _itemService.Setup(x => x.GetUserContext(It.IsAny<string>())).ReturnsAsync(new CartContextDetails());
+
+            var response = await _sut.GetUserContext("salesOrderID") as OkObjectResult;
+
+            Assert.Equal((int)HttpStatusCode.OK, response.StatusCode);
+        }
