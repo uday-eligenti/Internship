@@ -124,11 +124,65 @@ public async Task<CartContextDetails> GetUserContext(string salesOrderId)
             return default;
         }
 test:
-  public async Task GetUserContext_ShouldReturnExpectedResponse_ForValidRequest()
+ public async Task GetUserContext_ThrowsArgumentNullException_WhenSalesOrderIdIsNull()
         {
-            _itemService.Setup(x => x.GetUserContext(It.IsAny<string>())).ReturnsAsync(new CartContextDetails());
+            await Assert.ThrowsAsync<ArgumentNullException>(()=> _itemService.GetUserContext(null));
+        }
 
-            var response = await _sut.GetUserContext("salesOrderID") as OkObjectResult;
+        [Fact]
+        public async Task GetUserContext_ShouldReturnCartContextDetails_ForValidRequest()
+        {
+            _salesOrderServiceRepository.Setup(x => x.GetSalesOrderAsync(It.IsAny<string>()))
+                .ReturnsAsync(new Models.SalesOrder.SalesOrder() 
+                { 
+                    References = new List<Models.SalesOrder.Reference>()
+                    {
+                        new Models.SalesOrder.Reference()
+                        {
+                            Target = "foo/salesOrderID"
+                        }
+                    }    
+                });
 
-            Assert.Equal((int)HttpStatusCode.OK, response.StatusCode);
+            var context = new CommerceContext()
+            {
+                Country = "US",
+                Currency = "currency",
+                Region = "Region",
+                Segment = "Segment",
+                Language = "en",
+                CustomerSet = "CustomerSet",
+                SourceApplicationName = "SourceApplication",
+                BusinessUnitId = "1",
+                CompanyNumber = "2",
+                IsGOP = true
+            };
+
+            _cartService.Setup(x => x.GetCartAsync(It.IsAny<string>()))
+                .ReturnsAsync(new V3Cart()
+                {
+                    CommerceContext = context
+                });
+
+            var result = await _itemService.GetUserContext("salesOrderId");
+
+            Assert.NotNull(result);
+            Assert.Equal(context.Country, result.Context.Country);
+            Assert.Equal(context.Currency, result.Context.Currency);
+            Assert.Equal(context.Region, result.Context.Region);
+            Assert.Equal(context.Segment, result.Context.Segment);
+            Assert.Equal($"{context.Language}-{context.Country}", result.Context.CurrencyCultureInfo);
+            Assert.Equal(context.CustomerSet, result.Context.CustomerSet);
+            Assert.Equal(context.AccessGroup, result.Context.AccessGroup);
+            Assert.Equal(context.SourceApplicationName, result.Context.SourceApplicationName);
+            Assert.Equal(context.BusinessUnitId, result.Context.BusinessUnitId);
+            Assert.Equal(context.CompanyNumber, result.Context.CompanyNumber);
+            Assert.True(result.Context.IsGop);
+        }
+code:
+   public async Task<ItemStackResponse> GetItemStackDetail(ItemStackRequest request)
+        {
+            var salesOrder = await _salesOrderService.GetSalesOrderAsync(request.SalesOrderId);
+
+            return _itemStackBuilder.Build(salesOrder, request);
         }
