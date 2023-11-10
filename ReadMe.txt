@@ -82,7 +82,18 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - add desclaimer in inMemory
 - adjust alert height
 - adjust flip card links alignment
-
+-----------------
+    var _loggerMock = new Mock<IShippingMethodLogger>();
+    var salesOrderId = "exampleSalesOrderId";
+    string nullMaxLeadTimeItemId = null;
+    _loggerMock.Setup(x => x.LogWarningMessage(It.IsAny<string>())); 
+    // Action
+    await _leadTimeDetailsService.UpdateLeadTimeDetailsToSalesOrder(
+        new List<LeadTimeDetail> { new LeadTimeDetail() }, nullMaxLeadTimeItemId, salesOrderId);
+    // Assert
+    _loggerMock.Verify(
+x => x.LogWarningMessage(It.IsAny<string>()),
+Times.Once);
 -----------------------------------------------------------------------
 public async Task<CartContextDetails> GetUserContext(string salesOrderId)
         {
