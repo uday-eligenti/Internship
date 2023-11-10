@@ -94,6 +94,10 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
     _loggerMock.Verify(
 x => x.LogWarningMessage(It.IsAny<string>()),
 Times.Once);
+
+if (maxLeadTimeItemId.IsNullOrEmpty())
+    _logger.LogWarningMessage($"UpdateLeadTimeDetailsToSalesOrder: MaxLeadTimeId is null for the SalesOrderId: {salesOrderId}");
+
 -----------------------------------------------------------------------
 public async Task<CartContextDetails> GetUserContext(string salesOrderId)
         {
