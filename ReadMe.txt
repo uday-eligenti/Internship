@@ -223,3 +223,14 @@ code:
                 return await _salesOrderServiceRepository.DeleteShipment(salesOrderId, shipmentId);
             }
         }
+--
+        public bool IsQuoteEligibleForSameShipment(QuoteShipment shipment, List<ItemSnapshotDetail> itemSnapshotDetails, List<OutputItem> outputItems, string selectedShippingChoice)
+        {
+            if (itemSnapshotDetails.IsNullOrEmpty())
+            {
+                throw new ArgumentNullException(nameof(itemSnapshotDetails));
+            }
+            var shipment_itemSnapshot = itemSnapshotDetails.Where(item => shipment.Items.Any(shipmentItem => (shipmentItem.QuoteItemId.EqualsOrdinalIgnoreCase(item.QuoteItemId)))).ToList();
+            return !outputItems.IsNullOrEmpty() && shipment_itemSnapshot.All(item => outputItems.FirstOrDefault(opItem => opItem.ItemId == item.ItemId)?
+                                                                                                .ShippingOptions.Any(op => op.OptionId.EqualsOrdinalIgnoreCase(selectedShippingChoice)) == true);
+        }
