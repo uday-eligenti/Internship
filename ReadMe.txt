@@ -201,3 +201,36 @@ code:
 
             return _itemStackBuilder.Build(salesOrder, request);
         }
+---------
+       private DCQOSalesOrderShipmentRequest MapDCQOSalesOrderCreateShipmentRequest(SalesOrderCreateShipmentRequest salesOrderCreateShipmentRequest)
+       {
+           return new DCQOSalesOrderShipmentRequest
+           {
+               ShippingMethod = salesOrderCreateShipmentRequest?.ShippingMethod,
+               InboundShipMethod = salesOrderCreateShipmentRequest?.InboundShipMethod,
+               ArriveByDate = salesOrderCreateShipmentRequest?.ArriveByDate,
+               FuturisticDeliveryDate = salesOrderCreateShipmentRequest?.FuturisticDeliveryDate,
+               Instructions = salesOrderCreateShipmentRequest?.Instructions,
+               ShippingContact = null,
+               DesignatedCarrier = salesOrderCreateShipmentRequest?.DesignatedCarrier,
+               Items = salesOrderCreateShipmentRequest?.Items,
+               GroupId = salesOrderCreateShipmentRequest?.GroupId,
+               AnESolutionName = salesOrderCreateShipmentRequest?.AnESolutionName,
+               AgreementId = salesOrderCreateShipmentRequest?.AgreementId,
+               ContactReferences = salesOrderCreateShipmentRequest?.ContactReferences,
+               Incoterms = salesOrderCreateShipmentRequest?.Incoterms,
+               ShippingOptions = salesOrderCreateShipmentRequest?.ShippingOptions,
+               ShipmentId = salesOrderCreateShipmentRequest?.ShipmentId,
+               ShippingContactUrl = salesOrderCreateShipmentRequest?.ShippingContactUrl,
+               FgaType = null,
+               ShippingCarrier = salesOrderCreateShipmentRequest?.ShippingCarrier,
+               PortOfDestination = salesOrderCreateShipmentRequest?.PortOfDestination,
+               ConsolidationId = null,
+               ConsolidationItemQuantity = null,
+               IsUpgrade = false,
+               InstallationInstructions = salesOrderCreateShipmentRequest?.InstallationInstructions,
+               VatpNotes = null,
+               Properties = null,
+               LicenseManagerEmails = null
+           };
+       }
