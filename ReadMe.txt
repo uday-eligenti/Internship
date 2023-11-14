@@ -234,3 +234,21 @@ code:
             return !outputItems.IsNullOrEmpty() && shipment_itemSnapshot.All(item => outputItems.FirstOrDefault(opItem => opItem.ItemId == item.ItemId)?
                                                                                                 .ShippingOptions.Any(op => op.OptionId.EqualsOrdinalIgnoreCase(selectedShippingChoice)) == true);
         }
+
+
+--
+ public bool QuoteShipmentExist(ShippingChargeRequest pricingServiceRequest, QuoteShippingMethodRequest shippingMethodRequest)
+        {
+            if (pricingServiceRequest == null)
+            {
+                throw new ArgumentNullException(nameof(pricingServiceRequest));
+            }
+            if (shippingMethodRequest == null)
+            {
+                throw new ArgumentNullException(nameof(shippingMethodRequest));
+            }
+            return pricingServiceRequest.Shipments != null && pricingServiceRequest.Shipments.Any() &&
+                   (string.IsNullOrEmpty(pricingServiceRequest?.Shipments.FirstOrDefault()?.ShippingAddress?.PostCode) ||
+                   ShipmentHelper.IsPostalCodeMatching(pricingServiceRequest?.Shipments.FirstOrDefault()?.ShippingAddress?.PostCode,
+                    shippingMethodRequest.ShippingInfo?.PostalCode));
+        }
