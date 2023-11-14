@@ -252,3 +252,79 @@ code:
                    ShipmentHelper.IsPostalCodeMatching(pricingServiceRequest?.Shipments.FirstOrDefault()?.ShippingAddress?.PostCode,
                     shippingMethodRequest.ShippingInfo?.PostalCode));
         }
+--
+  public List<ShipmentDetails> CreateQuoteShipmentDetails(ShippingChargeRequest pricingServiceRequest, FulfillmentChoiceResponse fulfillmentChoiceResponse, QuoteShippingMethodRequest shippingMethodRequest)
+        {
+            var shipments = new List<ShipmentDetails>();
+            if (pricingServiceRequest == null)
+            {
+                throw new ArgumentNullException(nameof(pricingServiceRequest));
+            }
+            if (fulfillmentChoiceResponse == null)
+            {
+                throw new ArgumentNullException(nameof(fulfillmentChoiceResponse));
+            }
+            if (shippingMethodRequest == null)
+            {
+                throw new ArgumentNullException(nameof(shippingMethodRequest));
+            }
+            var items = pricingServiceRequest.ConfigItems.Where(item => item.IsTied != true).Select(item => new Models.Pricing.ShipmentItem { Id = item.Id, ParentItemId = item.ParentItemId, Quantity = item.Quantity, Weight = item.Weight }).ToList();
+            items.AddRange(pricingServiceRequest.SnAItems.Where(item => item.IsTied != true).Select(item => new Models.Pricing.ShipmentItem { Id = item.Id, ParentItemId = item.ParentItemId, Quantity = item.Quantity, Weight = item.Weight }).ToList());
+            var shippingChoice = fulfillmentChoiceResponse.OutputItems?.FirstOrDefault()?.ShippingOptions.FirstOrDefault(p => p.IsDefault)?.OptionId ??
+                                             _storeSettingsService.GetDefaultStoreShipMethod(shippingMethodRequest.Context).Result;
+            var shippingAddress = new ShippingAddress { Country = shippingMethodRequest.ShippingInfo?.Country, PostCode = shippingMethodRequest.ShippingInfo?.PostalCode };
+            var shippingOptionIds = fulfillmentChoiceResponse.OutputItems?.SelectMany(x => x.ShippingOptions).Select(x => x.OptionId).Distinct().ToList();
+            var parentItems = items.Where(x => string.IsNullOrEmpty(x.ParentItemId) || Guid.Parse(x.ParentItemId) == Guid.Empty);
+            var readyStockParentItems = items?.FindAll(x => shippingMethodRequest.ItemSnapshotDetails?.FirstOrDefault(i => i.ItemId == x.Id)?.IsPickOrder ?? false);
+            var shipmentDetails = new ShipmentDetails
+            {
+                ShipmentGroups = new List<ShipmentGroup>(),
+                Id = Guid.NewGuid().ToString(),
+                ShippingChoice = shippingChoice,
+                ShippingAddress = shippingAddress,
+                ShippingOptionIds = shippingOptionIds
+            };
+            foreach (var item in parentItems.Where(x => !readyStockParentItems.Any(i => i.Id == x.Id)))
+            {
+                var parentChildItems = GetParentIdHierarchy(items, item.Id);
+                parentChildItems?.Add(item);
+                shipmentDetails.ShipmentGroups.Add(new ShipmentGroup
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    ShipmentUnits = parentChildItems?.Select(x => new ShipmentUnit
+                    {
+                        ItemId = x.Id,
+                        Quantity = Convert.ToInt32(x.Quantity),
+                        Weight = x.Weight != null ? (double)x.Weight : 0.0
+                    }).ToList()
+                });
+            }
+            shipments.Add(shipmentDetails);
+            if (!readyStockParentItems.Any()) return shipments;
+            readyStockParentItems.ForEach(item =>
+            {
+                var parentChildItems = GetParentIdHierarchy(items, item.Id);
+                parentChildItems?.Add(item);
+                shipments.Add(new ShipmentDetails
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    ShippingChoice = shippingChoice,
+                    ShippingAddress = shippingAddress,
+                    ShippingOptionIds = shippingOptionIds,
+                    ShipmentGroups = new List<ShipmentGroup>
+                    {
+                        new ShipmentGroup
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            ShipmentUnits = parentChildItems?.Select(x => new ShipmentUnit
+                            {
+                                ItemId = x.Id,
+                                Quantity = Convert.ToInt32(x.Quantity),
+                                Weight = x.Weight != null ? (double)x.Weight : 0.0
+                            }).ToList()
+                        }
+                    }
+                });
+            });
+            return shipments;
+        }
