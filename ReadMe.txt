@@ -202,6 +202,11 @@ code:
             return _itemStackBuilder.Build(salesOrder, request);
         }
 ---------
+  private async Task<bool> IsEnableMultishipmentOperationSalesOrderEndpoint()
+  {
+      var featureToggles = await _featureTogglesService.GetFeatureTogglesAsync();
+      return isEnableMultishipmentOperationSalesOrderEndpoint = featureToggles != null && featureToggles.EnableMultishipmentOperationSalesOrderEndpoint;
+  }
      public async Task<bool> DeleteShipment(string salesOrderId, string shipmentId)
         {
             await IsEnableMultishipmentOperationSalesOrderEndpoint();
