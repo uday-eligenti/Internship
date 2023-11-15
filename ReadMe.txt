@@ -97,7 +97,20 @@ Times.Once);
 
 if (maxLeadTimeItemId.IsNullOrEmpty())
     _logger.LogWarningMessage($"UpdateLeadTimeDetailsToSalesOrder: MaxLeadTimeId is null for the SalesOrderId: {salesOrderId}");
+--
+ public async Task<bool> UpdateLeadTimeDetailsToSalesOrder(List<LeadTimeDetail> leadTimeDetails, string maxLeadTimeItemId, string salesOrderId)
+ {           
 
+     if (salesOrderId.IsNullOrEmpty())
+         throw new ArgumentNullException(nameof(salesOrderId));
+
+     if (maxLeadTimeItemId.IsNullOrEmpty())
+         _logger.LogWarningMessage($"UpdateLeadTimeDetailsToSalesOrder: MaxLeadTimeId is null for the SalesOrderId: {salesOrderId}");
+
+     var salesOrderPatchLeadTimeRequest = _leadTimeDetailsRequestBuilder.BuildRequest(leadTimeDetails, maxLeadTimeItemId);
+
+     return await _salesOrderServiceRepository.PutLeadTimeDetailsToSalesOrder(salesOrderPatchLeadTimeRequest, salesOrderId);           
+ }
 -----------------------------------------------------------------------
 public async Task<CartContextDetails> GetUserContext(string salesOrderId)
         {
