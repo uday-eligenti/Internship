@@ -1,6 +1,20 @@
-Message: 
+  Message: 
 Moq.MockException : 
-Expected invocation on the mock once, but was 0 times: x => x.LogWarningMessage("UpdateLeadTimeDetailsToSalesOrder: MaxLeadTimeId is null for the SalesOrderId: yourSalesOrderId")This Website is for fetching the file content and displaying the content in the end point.
+Expected invocation on the mock at least once, but was never performed: x => x.LogWarningMessage("UpdateLeadTimeDetailsToSalesOrder: MaxLeadTimeId is null for the SalesOrderId: yourSalesOrderId")
+
+Performed invocations:
+
+   Mock<IShippingMethodLogger:2> (x):
+   No invocations performed.
+
+
+  Stack Trace: 
+Mock.Verify(Mock mock, LambdaExpression expression, Times times, String failMessage)
+Mock`1.Verify(Expression`1 expression, Times times)
+Mock`1.Verify(Expression`1 expression, Func`1 times)
+LeadTimeDetailsServiceTests.UpdateLeadTimeDetailsToSalesOrder_MaxLeadTimeIdIsNull_LogsWarning() line 108
+--- End of stack trace from previous location ---
+This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
 This app has a GET Method
 The application accepts the 3 optional parameters in the URL
