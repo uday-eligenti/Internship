@@ -1,19 +1,3 @@
-  Message: 
-Moq.MockException : 
-Expected invocation on the mock at least once, but was never performed: x => x.LogWarningMessage("UpdateLeadTimeDetailsToSalesOrder: MaxLeadTimeId is null for the SalesOrderId: yourSalesOrderId")
-
-Performed invocations:
-
-   Mock<IShippingMethodLogger:2> (x):
-   No invocations performed.
-
-
-  Stack Trace: 
-Mock.Verify(Mock mock, LambdaExpression expression, Times times, String failMessage)
-Mock`1.Verify(Expression`1 expression, Times times)
-Mock`1.Verify(Expression`1 expression, Func`1 times)
-LeadTimeDetailsServiceTests.UpdateLeadTimeDetailsToSalesOrder_MaxLeadTimeIdIsNull_LogsWarning() line 108
---- End of stack trace from previous location ---
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
 This app has a GET Method
@@ -99,6 +83,70 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 -----------------
+        public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponseNonSupported(UpdateShipmentRequest shipmentRequest, SalesOrderDataModel salesOrder, Contact shippingContact)
+        {
+            if (!IsTwoTouchProduct(shipmentRequest.Context.IsPremierCustomer, shipmentRequest.ItemSnapshotDetails))
+            {
+                return null;
+            }
+            var request2T = new UpdateShipmentRequest(shipmentRequest)
+            {
+                ItemSnapshotDetails = shipmentRequest.ItemSnapshotDetails.Where(item => item.IsTwoTouchItem).ToList()
+            };
+
+            var fulfillmentChoiceServiceRequest = _shipmentChoiceService.FulfillmentChoiceServiceRequestMapper(request2T.Context, shippingContact, request2T.ItemSnapshotDetails,
+                salesOrder.PaymentMethods, salesOrder.Id, false, ArriveByDate: null, null, incotermsSelection: salesOrder.GetIncotermsSelection());
+            fulfillmentChoiceServiceRequest.Is2TRequest = true;
+
+            return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
+        }
+2-
+ public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponseNonSupported(bool isPremierCustomer, FulfillmentChoiceContext context, List<ItemSnapshotDetail> itemSnapshotDetails,
+     SalesOrderDataModel salesOrder, Contact shippingContact)
+ {
+     if (!IsTwoTouchProduct(isPremierCustomer, itemSnapshotDetails))
+     {
+         return null;
+     }
+
+     var twoTouchItemSnapshotDetails = itemSnapshotDetails.Where(item => item.IsTwoTouchItem).ToList();
+
+     var fulfillmentChoiceServiceRequest = _shipmentChoiceService.FulfillmentChoiceServiceRequestMapper(context, shippingContact, twoTouchItemSnapshotDetails,
+         salesOrder.PaymentMethods, salesOrder.Id, false, ArriveByDate: null, null, incotermsSelection: salesOrder.GetIncotermsSelection());
+     fulfillmentChoiceServiceRequest.Is2TRequest = true;
+
+     return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
+ }
+3-
+ public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponse(ShipmentRequest request, SalesOrderDataModel salesOrder)
+ {
+     if (IsTwoTouchProduct(request.Context.IsPremierCustomer, request.ItemSnapshotDetails))
+     {
+         var fulfillmentChoiceServiceRequest = new FulfillmentChoiceServiceRequest
+         {
+             Context = request.Context,
+             ShippingContact = request.ShippingContact,
+             ItemSnapshotDetails = request.ItemSnapshotDetails,
+             PaymentMethods = salesOrder.PaymentMethods,
+             SourceId = salesOrder.Id,
+             PatchMABD = false,
+             ArriveByDate = null,
+             SelectedShippingOption = null,
+             IsRedFlag = request.IsRedFlag,
+             SkipCDS = request.SkipCDS,
+             IncotermsSelection = salesOrder.GetIncotermsSelection(),
+             HoldReason = salesOrder.GetOriginalDocumentRequired(),
+             Is2TRequest = true
+         };
+
+         return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
+     }
+     return null;
+ }
+
+
+
+---
     var _loggerMock = new Mock<IShippingMethodLogger>();
     var salesOrderId = "exampleSalesOrderId";
     string nullMaxLeadTimeItemId = null;
