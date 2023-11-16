@@ -82,68 +82,23 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - add desclaimer in inMemory
 - adjust alert height
 - adjust flip card links alignment
------------------
-        public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponseNonSupported(UpdateShipmentRequest shipmentRequest, SalesOrderDataModel salesOrder, Contact shippingContact)
-        {
-            if (!IsTwoTouchProduct(shipmentRequest.Context.IsPremierCustomer, shipmentRequest.ItemSnapshotDetails))
-            {
-                return null;
-            }
-            var request2T = new UpdateShipmentRequest(shipmentRequest)
-            {
-                ItemSnapshotDetails = shipmentRequest.ItemSnapshotDetails.Where(item => item.IsTwoTouchItem).ToList()
-            };
+------public async Task<(FulfillmentChoiceRequest, FulfillmentChoiceResponse)> GetDPEPayloads(FulfillmentChoiceRequestBuildContext requestBuildContext, string salesOrderId)
+{
+    ValidateInput(requestBuildContext);
 
-            var fulfillmentChoiceServiceRequest = _shipmentChoiceService.FulfillmentChoiceServiceRequestMapper(request2T.Context, shippingContact, request2T.ItemSnapshotDetails,
-                salesOrder.PaymentMethods, salesOrder.Id, false, ArriveByDate: null, null, incotermsSelection: salesOrder.GetIncotermsSelection());
-            fulfillmentChoiceServiceRequest.Is2TRequest = true;
+    if (requestBuildContext.CommerceContext != null)
+    {
+        requestBuildContext.CommerceContext.SourceId = salesOrderId;
+    }
 
-            return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
-        }
-2-
- public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponseNonSupported(bool isPremierCustomer, FulfillmentChoiceContext context, List<ItemSnapshotDetail> itemSnapshotDetails,
-     SalesOrderDataModel salesOrder, Contact shippingContact)
- {
-     if (!IsTwoTouchProduct(isPremierCustomer, itemSnapshotDetails))
-     {
-         return null;
-     }
+    var deliveryPromiseRequest = _deliveryPromiseRequestBuilder.Build(requestBuildContext);
 
-     var twoTouchItemSnapshotDetails = itemSnapshotDetails.Where(item => item.IsTwoTouchItem).ToList();
+    return deliveryPromiseRequest.ShippableItems
+                                 .IsNullOrEmpty() ? (deliveryPromiseRequest, default)
+                                                  : (deliveryPromiseRequest,
+                                                     await GetDeliveryPromiseData(requestBuildContext, salesOrderId, deliveryPromiseRequest));
 
-     var fulfillmentChoiceServiceRequest = _shipmentChoiceService.FulfillmentChoiceServiceRequestMapper(context, shippingContact, twoTouchItemSnapshotDetails,
-         salesOrder.PaymentMethods, salesOrder.Id, false, ArriveByDate: null, null, incotermsSelection: salesOrder.GetIncotermsSelection());
-     fulfillmentChoiceServiceRequest.Is2TRequest = true;
-
-     return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
- }
-3-
- public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponse(ShipmentRequest request, SalesOrderDataModel salesOrder)
- {
-     if (IsTwoTouchProduct(request.Context.IsPremierCustomer, request.ItemSnapshotDetails))
-     {
-         var fulfillmentChoiceServiceRequest = new FulfillmentChoiceServiceRequest
-         {
-             Context = request.Context,
-             ShippingContact = request.ShippingContact,
-             ItemSnapshotDetails = request.ItemSnapshotDetails,
-             PaymentMethods = salesOrder.PaymentMethods,
-             SourceId = salesOrder.Id,
-             PatchMABD = false,
-             ArriveByDate = null,
-             SelectedShippingOption = null,
-             IsRedFlag = request.IsRedFlag,
-             SkipCDS = request.SkipCDS,
-             IncotermsSelection = salesOrder.GetIncotermsSelection(),
-             HoldReason = salesOrder.GetOriginalDocumentRequired(),
-             Is2TRequest = true
-         };
-
-         return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
-     }
-     return null;
- }
-
+}
 
 
 ---
