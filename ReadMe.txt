@@ -82,7 +82,19 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - add desclaimer in inMemory
 - adjust alert height
 - adjust flip card links alignment
-------public async Task<(FulfillmentChoiceRequest, FulfillmentChoiceResponse)> GetDPEPayloads(FulfillmentChoiceRequestBuildContext requestBuildContext, string salesOrderId)
+------
+  async Task<bool> AddNewShipments(List<ShippingChoiceGroup> deltaShippingChoiceGroups)
+            {
+                foreach (var shippingChoiceGroup in deltaShippingChoiceGroups)
+                {
+                    var createShipmentResult = await CreateShipmentAndLeadTimeOnUpdateAddress(shippingChoiceGroup.ShippingChoice, shippingChoiceGroup.ItemSnapshotDetailWithOutputItems.FirstOrDefault().ShipmentName,
+                        shipmentRequest.ShippingContact, shippingChoiceGroup.ItemSnapshotDetailWithOutputItems.Select(x => x.ItemSnapshotDetail).ToList(), shipmentRequest, fulfillmentChoiceResponse.OutputItems, othersShippingOptions, leadTimeDetails);
+                    if (!createShipmentResult) return false;
+                }
+                return true;
+            }
+--
+public async Task<(FulfillmentChoiceRequest, FulfillmentChoiceResponse)> GetDPEPayloads(FulfillmentChoiceRequestBuildContext requestBuildContext, string salesOrderId)
 {
     ValidateInput(requestBuildContext);
 
