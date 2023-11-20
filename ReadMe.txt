@@ -83,16 +83,64 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
-  async Task<bool> AddNewShipments(List<ShippingChoiceGroup> deltaShippingChoiceGroups)
+ public async Task<List<CommonShipment>> GetShipmentsFromQuoteOrSalesOrder(PriceAndShipmentDataModel priceAndShipmentDataModel, ShippingMethodRequest shippingMethodRequest = null)
+        {
+            var shipments = new List<CommonShipment>() { };
+            if (priceAndShipmentDataModel.ActualSourceType == ApplicationSourceType.Quote)
             {
-                foreach (var shippingChoiceGroup in deltaShippingChoiceGroups)
+                foreach (var shipment in priceAndShipmentDataModel.QuoteShipments)
                 {
-                    var createShipmentResult = await CreateShipmentAndLeadTimeOnUpdateAddress(shippingChoiceGroup.ShippingChoice, shippingChoiceGroup.ItemSnapshotDetailWithOutputItems.FirstOrDefault().ShipmentName,
-                        shipmentRequest.ShippingContact, shippingChoiceGroup.ItemSnapshotDetailWithOutputItems.Select(x => x.ItemSnapshotDetail).ToList(), shipmentRequest, fulfillmentChoiceResponse.OutputItems, othersShippingOptions, leadTimeDetails);
-                    if (!createShipmentResult) return false;
+                    var designatedCarrier = shipment.ShippingMethod.EqualsOrdinalIgnoreCase("DC") ? shipment.DesignatedCarrier : shippingMethodRequest?.DesignatedCarrier;
+                    var commonShipment = new CommonShipment()
+                    {
+                        DesignatedCarrier = designatedCarrier != null
+                        ? new DesignatedCarrierModel
+                        {
+                            AccountNumber = designatedCarrier?.AccountNumber,
+                            PreferredCarrier = designatedCarrier?.PreferredCarrier,
+                            DeliveryMethod = designatedCarrier?.DeliveryMethod,
+                            DesignatedCarrierPrepPopTextLocked = shippingMethodRequest?.DesignatedCarrier?.DesignatedCarrierPrepPopTextLocked ?? false,
+                            EnablePrepopulateDesignatedCarrier = shippingMethodRequest?.DesignatedCarrier?.EnablePrepopulateDesignatedCarrier ?? false
+                        }
+                        : null,
+                        InstallationInstructions = shipment.InstallationInstructions,
+                        ShippingInstructions = shipment.Instructions,
+                        ShippingMethod = shipment.ShippingMethod,
+                        QuoteShipment = shipment,
+                        ShippingInfo = _shipmentHelper.GetShippingInfo(shipment.ShippingContact)
+                    };
+                    shipments.Add(commonShipment);
                 }
-                return true;
             }
+            else
+            {
+                foreach (var shipment in priceAndShipmentDataModel.Shipments)
+                {
+                    var designatedCarrier = shipment.ShippingMethod.EqualsOrdinalIgnoreCase("DC") ? shipment.DesignatedCarrier : shippingMethodRequest?.DesignatedCarrier;
+                    var commonShipment = new CommonShipment()
+                    {
+                        DesignatedCarrier = designatedCarrier != null
+                         ? new DesignatedCarrierModel
+                         {
+                             AccountNumber = designatedCarrier?.AccountNumber,
+                             PreferredCarrier = designatedCarrier?.PreferredCarrier,
+                             DeliveryMethod = designatedCarrier?.DeliveryMethod,
+                             DesignatedCarrierPrepPopTextLocked = shippingMethodRequest?.DesignatedCarrier?.DesignatedCarrierPrepPopTextLocked ?? false,
+                             EnablePrepopulateDesignatedCarrier = shippingMethodRequest?.DesignatedCarrier?.EnablePrepopulateDesignatedCarrier ?? false
+                         }
+                         : null,
+                        InstallationInstructions = shipment.InstallationInstructions,
+                        ShippingInstructions = shipment.Instructions,
+                        ShippingMethod = shipment.ShippingMethod,
+                        SalesOrderShipment = shipment,
+                        ShippingInfo = _shipmentHelper.GetShippingInfo(shipment.ShippingContact),
+                        IsMABDShipment = shipment.IsMABDShipment()
+                    };
+                    shipments.Add(commonShipment);
+                }
+            }
+            return await Task.FromResult(shipments);
+        }
 --
 public async Task<(FulfillmentChoiceRequest, FulfillmentChoiceResponse)> GetDPEPayloads(FulfillmentChoiceRequestBuildContext requestBuildContext, string salesOrderId)
 {
