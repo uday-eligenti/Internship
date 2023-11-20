@@ -83,6 +83,40 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
+//
+ public class QuoteShipment
+ {
+     public string Id { get; set; }
+     public string ShipmentName { get; set; }
+     public string ShippingMethod { get; set; }
+     public List<string> ShippingOptions { get; set; }
+     public Contact ShippingContact { get; set; }
+     public DesignatedCarrier DesignatedCarrier { get; set; }
+     public List<ContactReference> ContactReferences { get; set; }
+     public List<QuoteShipmentItem> Items { get; set; }
+     public IDictionary<string, string> Properties { get; set; }
+     public string Instructions { get; set; }
+     public ShipmentPriceSummary PriceSummary { get; set; }
+     public string ItemGroupId { get; set; }
+     public string ConsolidationId { get; set; }
+     public int? ConsolidationQuantity { get; set; }
+     public int? ConsolidationItemQuantity { get; set; }
+     public string GroupName { get; set; }
+     public string GroupId { get; set; }
+     public string GoalId { get; set; }
+     public DateTime? ArriveByDate { get; set; }
+     public string AnESolutionName { get; set; }
+     public string AgreementId { get; set; }
+     public string IncoTerms { get; set; }
+     public string FgaType { get; set; }
+     public string InboundShipMethod { get; set; }
+     public string InstallationInstructions { get; set; }
+     public string ShippingCarrier { get; set; }
+     public string DeliveryCity { get; set; }
+     public string VatpNotes { get; set; }
+     public string FuturisticDeliveryDate { get; set; }
+ }
+//
  public async Task<List<CommonShipment>> GetShipmentsFromQuoteOrSalesOrder(PriceAndShipmentDataModel priceAndShipmentDataModel, ShippingMethodRequest shippingMethodRequest = null)
         {
             var shipments = new List<CommonShipment>() { };
