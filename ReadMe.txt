@@ -83,6 +83,101 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
+        public async Task GetShipmentsFromQuoteOrSalesOrder_ReturnsCommonShipments()
+        {
+            // Arrange
+            var priceAndShipmentDataModel = new PriceAndShipmentDataModel
+            {
+                ActualSourceType = ApplicationSourceType.Quote,
+                QuoteShipments = new List<QuoteShipment>
+            {
+                new QuoteShipment {
+                    Id = "123456",
+    ShipmentName = "Shipment1",
+    ShippingMethod = "dc",
+    ShippingOptions = new List<string> { "Option1", "Option2" },
+    ShippingContact = new Contact
+    {
+        FirstName = "John",
+        LastName = "Doe",
+        Address = new Models.Common.Shipping.Address
+        {
+            City = "Anytown",
+            PostalCode = "12345",
+            Country = "USA"
+        }
+    },
+    DesignatedCarrier = new DesignatedCarrier
+    {
+        AccountNumber = "ACCT123",
+        PreferredCarrier = "CarrierXYZ",
+        DeliveryMethod = "Air",
+        DesignatedCarrierPrepPopTextLocked = true,
+        EnablePrepopulateDesignatedCarrier = false
+    },
+    ContactReferences = new List<ContactReference>
+    {
+        new ContactReference { Type = "Reference1" },
+        new ContactReference { Type = "Reference2"}
+    },
+    Items = new List<QuoteShipmentItem>
+    {
+        new QuoteShipmentItem { QuoteItemId = "Item1", SiteCode = "ccc" },
+        new QuoteShipmentItem {QuoteItemId = "Item1", SiteCode = "123" }
+    },
+    Properties = new Dictionary<string, string>
+    {
+        { "Property1", "Value1" },
+        { "Property2", "Value2" }
+    },
+    Instructions = "Handle with care",
+    PriceSummary = new ShipmentPriceSummary
+    {
+        ShipmentId = "123",
+        ShippingPrice = 8.0,
+        TotalShipping = 108.0
+    },
+    ItemGroupId = "Group123",
+    ConsolidationId = "Consolidation456",
+    ConsolidationQuantity = 3,
+    ConsolidationItemQuantity = 25,
+    GroupName = "GroupA",
+    GroupId = "GroupID123",
+    GoalId = "Goal123",
+    ArriveByDate = DateTime.Now.AddDays(5),
+    AnESolutionName = "SolutionXYZ",
+    AgreementId = "Agreement456",
+    IncoTerms = "FOB",
+    FgaType = "TypeA",
+    InboundShipMethod = "Ground",
+    InstallationInstructions = "Follow installation manual",
+    ShippingCarrier = "CarrierABC",
+    DeliveryCity = "DestinationCity",
+    VatpNotes = "VATP Note",
+    FuturisticDeliveryDate = "2023-12-01"
+
+                    }
+            }
+            };
+
+            var shippingMethodRequest = new Models.ShippingMethod.ShippingMethodRequest
+            {
+                DesignatedCarrier = new DesignatedCarrier
+                {
+                    AccountNumber = "ACCT123",
+                    PreferredCarrier = "CarrierXYZ",
+                    DeliveryMethod = "Air",
+                    DesignatedCarrierPrepPopTextLocked = true,
+                    EnablePrepopulateDesignatedCarrier = true
+                }
+            };
+            // Act
+            var result = await _sut.GetShipmentsFromQuoteOrSalesOrder(priceAndShipmentDataModel, shippingMethodRequest);
+            // Assert
+            Assert.NotEmpty(result);
+            // Add more assertions based on the actual properties and requirements in your application
+        }
+
 //
  public class QuoteShipment
  {
