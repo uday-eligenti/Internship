@@ -83,12 +83,11 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
-[Fact]
-public Task GetIncotermsSelectionReturnsNull()
+public static IncotermsSelection GetIncotermsSelection(this QuoteDataModel quote)
 {
-    var test = QuoteServiceExtension.GetIncotermsSelection(new QuoteShipment());
-    Assert.Null(test);
+    return quote?.Shipments?.FirstOrDefault().GetIncotermsSelection();
 }
+
 Exception thrown: 'System.NotSupportedException' in Moq.dll
    public async Task<QuoteDataModel> GetQuoteAsync(string quoteId)
 {
