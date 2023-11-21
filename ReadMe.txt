@@ -122,3 +122,16 @@ Exception thrown: 'System.NotSupportedException' in Moq.dll
         }
     }
 }
+
+ [Fact]
+ public async Task GetQuoteAsync_CancelledRequest_ThrowsException()
+ {
+     // Arrange
+     var httpClient = new Mock<HttpClient>();
+     httpClient
+         .Setup(c => c.GetAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+         .ThrowsAsync(new Exception());
+
+     // Act & Assert
+     await Assert.ThrowsAsync<Exception>(async () => await _sut.GetQuoteAsync("QuoteId"));
+}
