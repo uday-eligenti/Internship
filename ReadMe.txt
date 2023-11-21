@@ -83,6 +83,7 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
+Exception thrown: 'System.NotSupportedException' in Moq.dll
    public async Task<QuoteDataModel> GetQuoteAsync(string quoteId)
 {
     ValidateSourceId(quoteId);
