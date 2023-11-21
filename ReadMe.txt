@@ -83,6 +83,14 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
+public static string GetCultureInfo(this QuoteShippingMethodRequest shippingMethodRequest, string defaultCurrencyCulture)
+        {
+            var cultureInfo = !string.IsNullOrEmpty(shippingMethodRequest?.Context?.Language) ? shippingMethodRequest?.Context?.Language + "-" + shippingMethodRequest?.Context?.Country :
+            !string.IsNullOrEmpty(shippingMethodRequest?.Context?.CultureInfo) ? shippingMethodRequest?.Context?.CultureInfo : shippingMethodRequest?.Context?.CurrencyCultureInfo;
+            var currencyCultureInfo = shippingMethodRequest?.Context?.CurrencyCultureInfo;
+            return !cultureInfo.HasNoValue() ? cultureInfo : !currencyCultureInfo.HasNoValue() ? currencyCultureInfo : defaultCurrencyCulture;
+        }
+
 public static IncotermsSelection GetIncotermsSelection(this QuoteDataModel quote)
 {
     return quote?.Shipments?.FirstOrDefault().GetIncotermsSelection();
