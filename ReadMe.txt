@@ -83,6 +83,25 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
+ public ShippingMethodShippingInfo GetShippingInfo(Models.Common.Shipping.Contact shippingContact)
+        {
+            if (shippingContact?.Address != null)
+            {
+                return new ShippingMethodShippingInfo
+                {
+                    Country = shippingContact.Address.Country,
+                    PostalCode = shippingContact.Address.PostalCode,
+                    City = shippingContact.Address.City,
+                    State = shippingContact.Address.Region,
+                    Line1 = shippingContact.Address.Line1
+                };
+            }
+            return null;
+        }
+
+
+
+--
 public static bool ContainsKey(this List<QuoteExtendedProperty> properties, string key)
         {
             return properties.Any(x => x.Key == key);
