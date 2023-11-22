@@ -131,3 +131,28 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
             }
             return extendedPropertiesCollection;
         }
+--
+ public async Task<QuoteDataModel> GetQuoteAsync(string quoteId)
+ {
+     ValidateSourceId(quoteId);
+     var quoteUri = _quoteConfigurationSettings.GetRequestUri(QuoteEndpointVersion, quoteId);
+     using (var cancellationTokenSource = new CancellationTokenSource(requestTimeout))
+     {
+         HttpResponseMessage quoteResponse = new HttpResponseMessage();
+         try
+         {
+             cancellationTokenSource.Token.ThrowIfCancellationRequested();
+             quoteResponse = await _quoteClient.GetAsync(quoteUri, cancellationTokenSource.Token);
+
+             if (!quoteResponse.IsSuccessStatusCode)
+             {
+                 return default;
+             }
+
+             return JsonConvert.DeserializeObject<QuoteDataModel>(await quoteResponse.Content.ReadAsStringAsync());
+         }
+         catch (OperationCanceledException ex)
+         {
+             throw new Exception(ExceptionLog.LogException(ex.ToString(), quoteResponse));
+         }
+     }
