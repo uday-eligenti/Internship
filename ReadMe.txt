@@ -83,22 +83,51 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
-       public async Task<bool> PatchInboundShippingOption(IExtendedPropertiesRepository repository, string id, string inboundShippingOption)
+        public ExtendedPropertiesCollection GetFddtExtendedProperties(ExtendedPropertiesCollection extendedPropertiesCollection, string country, bool isLargeOrder, Dictionary<string, string> itemSupportabilityInfo = null, Dictionary<string, string> existingSalesOrderExtendedProperties = null)
         {
-            if (inboundShippingOption == null)
+            if (isLargeOrder)
             {
-                return true;
-            }
-            return await repository.PutExtendedProperties(new Models.Common.ExtendedPropertiesCollection
-            {
-                ExtendedProperties = new List<Models.Common.KeyValueProperty>
+                extendedPropertiesCollection.Add(ExtendedPropertyKeys.IsLargeOrder, isLargeOrder.ToString().ToLower());
+                if (country?.ToUpper() == "US" || country?.ToUpper() == "CA")
                 {
-                    new Models.Common.KeyValueProperty
+                    //Remove exitsing extended Properties and Reset if LargeOrder for part
+                    if (existingSalesOrderExtendedProperties != null)
                     {
-                        Key = ExtendedPropertyKeys.InboundShippingOption,
-                        Value = inboundShippingOption
+                        var extendedPropertiesSupportability = existingSalesOrderExtendedProperties.Where(c => c.Key.Contains("Supportability"));
+                        extendedPropertiesSupportability.ToList().ForEach(c =>
+                        {
+                            extendedPropertiesCollection.Add(c.Key, string.Empty);
+                        });
+                    }
+                    if (itemSupportabilityInfo != null)
+                    {
+                        itemSupportabilityInfo.ForEach(item =>
+                        {
+                            if (existingSalesOrderExtendedProperties != null && existingSalesOrderExtendedProperties.ContainsKey(string.Format(ExtendedPropertyKeys.Supportability, item.Key)))
+                            {
+                                extendedPropertiesCollection.ExtendedProperties.FirstOrDefault(c => c.Key.Equals(string.Format(ExtendedPropertyKeys.Supportability, item.Key))).Value = JsonConvert.SerializeObject(new GenericField { FieldKey = "Supportability", FieldValue = item.Value });
+                            }
+                            else
+                                extendedPropertiesCollection.Add(string.Format(ExtendedPropertyKeys.Supportability, item.Key), JsonConvert.SerializeObject(new GenericField { FieldKey = "Supportability", FieldValue = item.Value }));
+                        });
                     }
                 }
-            }, id);
+            }
+            else
+            {
+                if (existingSalesOrderExtendedProperties != null)
+                {
+                    //Remove exitsing extended Properties by setting to empty
+                    extendedPropertiesCollection.Add(ExtendedPropertyKeys.IsLargeOrder, string.Empty);
+                    if (country?.ToUpper() == "US" || country?.ToUpper() == "CA")
+                    {
+                        var extendedPropertiesSupportability = existingSalesOrderExtendedProperties.Where(c => c.Key.Contains("GenericField[FieldKey='Supportability']"));
+                        extendedPropertiesSupportability.ToList().ForEach(c =>
+                        {
+                            extendedPropertiesCollection.Add(c.Key, string.Empty);
+                        });
+                    }
+                }
+            }
+            return extendedPropertiesCollection;
         }
-
