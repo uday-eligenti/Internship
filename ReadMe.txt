@@ -83,98 +83,28 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
-        public Models.ShippingMethod.ShippingInfo GetShippingInfo(List<SalesOrderShipment> shipments)
+        public void AddItemExtendedProperties(List<DcqoItem> items, Dictionary<string, string> supportabilityDictionary)
         {
-            if (shipments?.First().ShippingContact?.Address != null)
+            if (supportabilityDictionary.Any())
             {
-                return new Models.ShippingMethod.ShippingInfo
+                foreach (var item in items)
                 {
-                    Country = shipments.First().ShippingContact.Address.Country,
-                    PostalCode = shipments.First().ShippingContact.Address.PostalCode,
-                    City = shipments.First().ShippingContact.Address.City,
-                    State = shipments.First().ShippingContact.Address.Region,
-                    Line1 = shipments.First().ShippingContact.Address.Line1
-                };
-            }
-            return null;
-        } 
-
-
-public ShippingMethodShippingInfo GetShippingInfo(Models.Common.Shipping.Contact shippingContact)
-        {
-            if (shippingContact?.Address != null)
-            {
-                return new ShippingMethodShippingInfo
-                {
-                    Country = shippingContact.Address.Country,
-                    PostalCode = shippingContact.Address.PostalCode,
-                    City = shippingContact.Address.City,
-                    State = shippingContact.Address.Region,
-                    Line1 = shippingContact.Address.Line1
-                };
-            }
-            return null;
-        }
-
-
-
---
-public static bool ContainsKey(this List<QuoteExtendedProperty> properties, string key)
-        {
-            return properties.Any(x => x.Key == key);
-        }
-        public static void AddSafe(this List<QuoteExtendedProperty> properties, string key, string value)
-        {
-            var entry = properties?.Find(x => x.Key == key);
-            if(entry != null)
-            {
-                entry.Value = value;
+                    item.ExtendedProperties ??= new List<KeyValueProperty>();
+                    supportabilityDictionary.TryGetValue(item.Id, out var value);
+                    item.ExtendedProperties.Add(new KeyValueProperty() { Key = "Supportability", Value = value ?? string.Empty });
+                }
             }
             else
             {
-                properties.Add(new QuoteExtendedProperty
+                foreach (var item in items)
                 {
-                    Key = key,
-                    Value = value
-                });
+                    if (item.ExtendedProperties != null)
+                    {
+                        if (item.ExtendedProperties.Any(c => c.Key.Equals("Supportability")))
+                        {
+                            item.ExtendedProperties.First(c => c.Key.Equals("Supportability")).Value = string.Empty;
+                        }
+                    }
+                }
             }
         }
-Exception thrown: 'System.NotSupportedException' in Moq.dll
-   public async Task<QuoteDataModel> GetQuoteAsync(string quoteId)
-{
-    ValidateSourceId(quoteId);
-    var quoteUri = _quoteConfigurationSettings.GetRequestUri(QuoteEndpointVersion, quoteId);
-    using (var cancellationTokenSource = new CancellationTokenSource(requestTimeout))
-    {
-        HttpResponseMessage quoteResponse = new HttpResponseMessage();
-        try
-        {
-            cancellationTokenSource.Token.ThrowIfCancellationRequested();
-            quoteResponse = await _quoteClient.GetAsync(quoteUri, cancellationTokenSource.Token);
-
-            if (!quoteResponse.IsSuccessStatusCode)
-            {
-                return default;
-            }
-
-            return JsonConvert.DeserializeObject<QuoteDataModel>(await quoteResponse.Content.ReadAsStringAsync());
-        }
-        catch (OperationCanceledException ex)
-        {
-            throw new Exception(ExceptionLog.LogException(ex.ToString(), quoteResponse));
-        }
-    }
-}
-
- [Fact]
- public async Task GetQuoteAsync_CancelledRequest_ThrowsException()
- {
-     // Arrange
-     var httpClient = new Mock<HttpClient>();
-     httpClient
-         .Setup(c => c.GetAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
-         .ThrowsAsync(new Exception());
-
-     // Act & Assert
-     await Assert.ThrowsAsync<Exception>(async () => await _sut.GetQuoteAsync("QuoteId"));
-}
