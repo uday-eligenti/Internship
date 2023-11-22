@@ -156,3 +156,16 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
              throw new Exception(ExceptionLog.LogException(ex.ToString(), quoteResponse));
          }
      }
+
+
+        // g
+        [Fact]
+        public async Task GetQuoteAsync_catch()
+        {
+            //arrange
+
+            //action
+            await Assert.ThrowsAsync<Exception>(() => _sut.GetQuoteAsync("quote"));
+        }
+
+        //
