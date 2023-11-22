@@ -83,11 +83,22 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
-  public void AddInboundShippingOptionToExtendedProperties(ExtendedPropertiesCollection extendedPropertiesCollection, string inboundShippingOption)
+       public async Task<bool> PatchInboundShippingOption(IExtendedPropertiesRepository repository, string id, string inboundShippingOption)
         {
-            if (inboundShippingOption != null)
+            if (inboundShippingOption == null)
             {
-                extendedPropertiesCollection.ExtendedProperties ??= new List<KeyValueProperty>();
-                extendedPropertiesCollection.Add(ExtendedPropertyKeys.InboundShippingOption, inboundShippingOption);
+                return true;
             }
+            return await repository.PutExtendedProperties(new Models.Common.ExtendedPropertiesCollection
+            {
+                ExtendedProperties = new List<Models.Common.KeyValueProperty>
+                {
+                    new Models.Common.KeyValueProperty
+                    {
+                        Key = ExtendedPropertyKeys.InboundShippingOption,
+                        Value = inboundShippingOption
+                    }
+                }
+            }, id);
         }
+
