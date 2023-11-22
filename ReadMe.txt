@@ -83,28 +83,11 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
-        public void AddItemExtendedProperties(List<DcqoItem> items, Dictionary<string, string> supportabilityDictionary)
+  public void AddInboundShippingOptionToExtendedProperties(ExtendedPropertiesCollection extendedPropertiesCollection, string inboundShippingOption)
         {
-            if (supportabilityDictionary.Any())
+            if (inboundShippingOption != null)
             {
-                foreach (var item in items)
-                {
-                    item.ExtendedProperties ??= new List<KeyValueProperty>();
-                    supportabilityDictionary.TryGetValue(item.Id, out var value);
-                    item.ExtendedProperties.Add(new KeyValueProperty() { Key = "Supportability", Value = value ?? string.Empty });
-                }
-            }
-            else
-            {
-                foreach (var item in items)
-                {
-                    if (item.ExtendedProperties != null)
-                    {
-                        if (item.ExtendedProperties.Any(c => c.Key.Equals("Supportability")))
-                        {
-                            item.ExtendedProperties.First(c => c.Key.Equals("Supportability")).Value = string.Empty;
-                        }
-                    }
-                }
+                extendedPropertiesCollection.ExtendedProperties ??= new List<KeyValueProperty>();
+                extendedPropertiesCollection.Add(ExtendedPropertyKeys.InboundShippingOption, inboundShippingOption);
             }
         }
