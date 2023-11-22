@@ -83,7 +83,24 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
- public ShippingMethodShippingInfo GetShippingInfo(Models.Common.Shipping.Contact shippingContact)
+        public Models.ShippingMethod.ShippingInfo GetShippingInfo(List<SalesOrderShipment> shipments)
+        {
+            if (shipments?.First().ShippingContact?.Address != null)
+            {
+                return new Models.ShippingMethod.ShippingInfo
+                {
+                    Country = shipments.First().ShippingContact.Address.Country,
+                    PostalCode = shipments.First().ShippingContact.Address.PostalCode,
+                    City = shipments.First().ShippingContact.Address.City,
+                    State = shipments.First().ShippingContact.Address.Region,
+                    Line1 = shipments.First().ShippingContact.Address.Line1
+                };
+            }
+            return null;
+        } 
+
+
+public ShippingMethodShippingInfo GetShippingInfo(Models.Common.Shipping.Contact shippingContact)
         {
             if (shippingContact?.Address != null)
             {
