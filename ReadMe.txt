@@ -83,6 +83,31 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ------
+public QuoteMultishipmentOperationDetail GetQuoteOperationsRequest(QuoteMultiShipServiceShipment multiShipServiceShipment, string shipmentId, PatchOperationType operationType)
+        {
+            string shipmentMethod = multiShipServiceShipment?.ShipmentShippingChoice?.ItemLevelShippingChoices[0]?.OptionId;
+            return new QuoteMultishipmentOperationDetail
+            {
+                OperationType = operationType,
+                ResourceId = shipmentId,
+                Value = new QuoteCreateOrUpdateShipmentRequest()
+                {
+                    FuturisticDeliveryDate = multiShipServiceShipment?.ShipmentShippingChoice != null ? GetFDDForQuote(multiShipServiceShipment) : String.Empty,
+                    ShippingContact = multiShipServiceShipment?.ShippingContact,
+                    InstallationInstructions = multiShipServiceShipment?.ShipmentShippingChoice?.InstallationInstructions,
+                    Items = multiShipServiceShipment?.ShipmentShippingChoice != null ? BuildQuoteItemDetails(multiShipServiceShipment?.ShipmentShippingChoice?.ItemLevelShippingChoices) : null,
+                    ShippingMethod = shipmentMethod,
+                    DesignatedCarrier = shipmentMethod.IsNotNullOrEmpty() ? shipmentMethod.EqualsOrdinalIgnoreCase(DeliveryMethodsConstants.DesignatedCarrierCode) 
+                ? multiShipServiceShipment?.ShipmentShippingChoice?.DesignatedCarrier ?? new DesignatedCarrier() : null : null,
+                    ShipmentName = multiShipServiceShipment?.ShipmentShippingChoice?.ShipmentName,
+                    Instructions = multiShipServiceShipment?.ShipmentShippingChoice?.ShippingInstructions,
+                    GroupId = multiShipServiceShipment?.GroupId
+                }
+            };
+        }
+
+
+--------
         public ExtendedPropertiesCollection GetFddtExtendedProperties(ExtendedPropertiesCollection extendedPropertiesCollection, string country, bool isLargeOrder, Dictionary<string, string> itemSupportabilityInfo = null, Dictionary<string, string> existingSalesOrderExtendedProperties = null)
         {
             if (isLargeOrder)
