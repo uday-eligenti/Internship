@@ -82,7 +82,49 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - add desclaimer in inMemory
 - adjust alert height
 - adjust flip card links alignment
-------
+------        [Fact]
+        public void GetQuoteOperationsRequest_ReturnsValidOperationDetailForCreate()
+        {
+            // Arrange
+            var multiShipServiceShipment = new QuoteMultiShipServiceShipment
+            {
+                ShipmentShippingChoice = new QuoteShipmentShippingChoiceRequest
+                {
+                    ItemLevelShippingChoices = new List<QuoteItemLevelShippingChoice>
+                {
+                    new QuoteItemLevelShippingChoice { OptionId = "Option1" }
+                },
+                    DesignatedCarrier = new DesignatedCarrier {  },
+                    ShipmentName = "Shipment123",
+                    ShippingInstructions = "Handle with care",
+                    InstallationInstructions = "Install carefully",
+                },
+                ShippingContact = new Models.Common.Shipping.Contact {  },
+                GroupId = "Group123"
+            };
+
+            string shipmentId = "ShipmentId123";
+            PatchOperationType operationType = PatchOperationType.Add;
+
+            // Act
+            var result = _sut.GetQuoteOperationsRequest(multiShipServiceShipment, shipmentId, operationType);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(operationType, result.OperationType);
+            Assert.Equal(shipmentId, result.ResourceId);
+            Assert.NotNull(result.Value);
+            Assert.Equal("Option1", result.Value.ShippingMethod);
+            Assert.Equal("Shipment123", result.Value.ShipmentName);
+            Assert.Equal("Handle with care", result.Value.Instructions);
+            Assert.Equal("Install carefully", result.Value.InstallationInstructions);
+            Assert.NotNull(result.Value.Items);
+            Assert.Equal("Group123", result.Value.GroupId);
+        }
+
+
+
+
 public QuoteMultishipmentOperationDetail GetQuoteOperationsRequest(QuoteMultiShipServiceShipment multiShipServiceShipment, string shipmentId, PatchOperationType operationType)
         {
             string shipmentMethod = multiShipServiceShipment?.ShipmentShippingChoice?.ItemLevelShippingChoices[0]?.OptionId;
