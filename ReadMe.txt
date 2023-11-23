@@ -283,3 +283,10 @@ public QuoteMultishipmentOperationDetail GetQuoteOperationsRequest(QuoteMultiShi
    Non-overridable members (here: HttpClient.GetAsync) may not be used in setup / verification expressions.
 
         //
+Message: 
+  Assert.Throws() Failure
+  Expected: typeof(System.Exception)
+  Actual:   typeof(Moq.MockException): HttpMessageHandler.SendAsync(Method: GET, RequestUri: 'http://g2vmquosvc01.olqa.preol.dell.com:1006/V3/quotes/quote', Version: 1.1, Content: <null>, Headers:
+  {
+    Authorization: test 1234
+  }, CancellationToken) invocation failed with mock behavior Strict.
