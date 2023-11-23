@@ -82,6 +82,50 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - add desclaimer in inMemory
 - adjust alert height
 - adjust flip card links alignment
+
+--------------
+
+
+ public SalesOrderUpdateShipmentRequest GetUpdateShipmentsRequest(MultiShipServiceShipment multiShipmentRequest, string shipmentId,
+            string[] shippingOptions, FulfillmentChoiceContext context, Dictionary<string, string> salesOrderExtendedProperties, string salesOrderId = "")
+        {
+            List<ShipmentItemReference> shipmentItems;
+            string shipmentMethod, shipmentName, shippingInstructions, estimatedDeliveryDateMax, installationInstructions;
+            DesignatedCarrier designatedCarrier;
+            var shippingContactReferences = _shippingContactService.GetContactReference(context, multiShipmentRequest?.ShippingContact?.ContactReferenceUrl);
+            GetMultiShipmentRequest(multiShipmentRequest, out shipmentItems, out shipmentMethod, out shipmentName, out shippingInstructions,
+                out designatedCarrier, out estimatedDeliveryDateMax, out installationInstructions);
+            //Reset MABD invalid Extended Property
+            if ((context.Region.ToUpper() == "EMEA" || context.Region.ToUpper() == "APJ") && !string.IsNullOrWhiteSpace(salesOrderId))
+            {
+                salesOrderExtendedProperties.TryGetValue(ExtendedPropertyKeys.IsInvalidMustArriveByDate + "-" + shipmentId, out string keyValue);
+                if (!string.IsNullOrEmpty(keyValue) && keyValue.EqualsOrdinalIgnoreCase("true"))
+                    _salesOrderServiceRepository.PutExtendedProperty(salesOrderId, ExtendedPropertyKeys.IsInvalidMustArriveByDate + "-" + shipmentId, "false");
+                salesOrderExtendedProperties.TryGetValue(ExtendedPropertyKeys.IsInvalidMabdWhenPaymentApplied + "-" + shipmentId, out string triggredValue);
+                if (!string.IsNullOrEmpty(triggredValue) && triggredValue.EqualsOrdinalIgnoreCase("true"))
+                    _salesOrderServiceRepository.PutExtendedProperty(salesOrderId, ExtendedPropertyKeys.IsInvalidMabdWhenPaymentApplied + "-" + shipmentId, "false");
+            }
+            return new SalesOrderUpdateShipmentRequest
+            {
+                ShipmentId = shipmentId,
+                ShippingMethod = shipmentMethod,
+                ShipmentName = shipmentName,
+                ShippingContact = (context != null && context.IsShippingContactDeprecated) ? null : multiShipmentRequest?.ShippingContact,
+                Instructions = shippingInstructions,
+                Items = shipmentItems?.ToArray(),
+                ShippingOptions = shippingOptions,
+                DesignatedCarrier = designatedCarrier,
+                InboundShipMethod = null,
+                InstallationInstructions = installationInstructions,
+                GroupId = multiShipmentRequest.GroupId,
+                ContactReferences = shippingContactReferences,
+                ArriveByDate = GetMABDForSaleOrder(multiShipmentRequest, context),
+                FuturisticDeliveryDate = GetFDDForSaleOrder(multiShipmentRequest)
+            };
+    }
+
+
+
 ------        [Fact]
         public void GetQuoteOperationsRequest_ReturnsValidOperationDetailForCreate()
         {
