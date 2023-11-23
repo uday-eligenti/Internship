@@ -84,25 +84,21 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust flip card links alignment
 
 --------------
-        public async Task<bool> CreateOrUpdateShipment(QuoteShipmentRequest shipmentRequest)
-        {
-            var quote = await GetQuoteAsync(shipmentRequest.QuoteId);
-            shipmentRequest.Context = await _shippingContactService.AssignCustomerNumbers(shipmentRequest.Context, quote);
-            if (quote.Shipments.IsNullOrEmpty())
+async Task<bool> CreateShippingChoiceShipment(IGrouping<string, ItemLevelShippingChoice> shippingChoiceGroup)
             {
-                var createRequest = _quoteShippingMapper.MapQuoteShipmentCreationRequest(shipmentRequest, quote);
-                return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).CreateQuoteShipments(createRequest);
+                var createQuoteRequest = _quoteShippingMapper.MapQuoteShippingChoiceRequest(quoteShipment, shippingChoiceGroup, request);
+                createQuoteRequest.Items = BuildQuoteItemDetails(shippingChoiceGroup.ToList(), quote, request.SkipShipmentItemDetails);
+                createQuoteRequest.FuturisticDeliveryDate = fdd;
+                if (isEnableMultishipmentOperationEndpoint)
+                {
+                    multishipmentOperationList.Add(MapQuoteMultishipmentsDetails(createQuoteRequest, PatchOperationType.Modify));
+                    return true;
+                }
+                else
+                {
+                    return await _quoteRepository.CreateQuoteShipment(createQuoteRequest, request.QuoteId);
+                }
             }
-
-            if (quote.Shipments.Count == 1)
-            {
-                shipmentRequest.SelectedShippingOption = quote.Shipments.First().ShippingMethod;
-            }
-
-            return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).UpdateQuoteShipments(shipmentRequest, quote);
-
-        }
-
 ---------
  public SalesOrderUpdateShipmentRequest GetUpdateShipmentsRequest(MultiShipServiceShipment multiShipmentRequest, string shipmentId,
             string[] shippingOptions, FulfillmentChoiceContext context, Dictionary<string, string> salesOrderExtendedProperties, string salesOrderId = "")
