@@ -84,6 +84,28 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust flip card links alignment
 
 --------------
+ public async Task<bool> UpdateVatpNotes(QuoteVatpNotesRequest request)
+        {
+            var quote = await GetQuoteAsync(request.QuoteId);
+            bool result = true;
+            if (quote != null)
+            {
+                foreach (var shipment in quote.Shipments)
+                {
+                    result = await _quoteShipmentService.UpdateShipment(new QuoteShipmentUpdationRequest
+                    {
+                        ShipmentId = shipment.Id,
+                        DeliveryMethod = shipment.ShippingMethod,
+                        Context = request.Context,
+                        VatpNotes = request.VatpNotes
+                    }, request.QuoteId, quote, multishipmentOperationList);
+                }
+                await PatchQuoteMultishipments(multishipmentOperationList, quote.Id);
+            }
+            return result;
+        }
+
+--
 async Task<bool> CreateShippingChoiceShipment(IGrouping<string, ItemLevelShippingChoice> shippingChoiceGroup)
             {
                 var createQuoteRequest = _quoteShippingMapper.MapQuoteShippingChoiceRequest(quoteShipment, shippingChoiceGroup, request);
