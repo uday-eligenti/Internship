@@ -84,25 +84,23 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust flip card links alignment
 
 --------------
-        public async Task<(FulfillmentChoiceRequest, FulfillmentChoiceResponse)> GetDPEPayloads(DPEPayloadsRequest request, SalesOrderDataModel salesOrder, SalesOrderShipment shipment, Contact shippingContact, DateTime? arriveByDate)
+        public async Task<bool> CreateOrUpdateShipment(QuoteShipmentRequest shipmentRequest)
         {
-            var shipmentItemsnapshotDetails = request.ItemSnapshotDetails.Where(x => shipment.Items.Any(s => s.ItemId == x.SaleOrderItemId)).ToList();
-            shipmentItemsnapshotDetails.Select(i =>
+            var quote = await GetQuoteAsync(shipmentRequest.QuoteId);
+            shipmentRequest.Context = await _shippingContactService.AssignCustomerNumbers(shipmentRequest.Context, quote);
+            if (quote.Shipments.IsNullOrEmpty())
             {
-                var shipmentItem = shipment.Items.Where(x => x.ItemId == i.SaleOrderItemId).FirstOrDefault();
-                i.ShippingChoice = shipment.ShippingMethod;
-                i.InboundShipMethod = shipmentItem.InboundShipMethod;
-                i.MABD = arriveByDate;
-                i.FulFillmentCenter = shipmentItem.ShipFromState;
-                return i;
-            }).ToList();
-            var fulfillmentChoiceRequest = FulfillmentChoiceServiceRequestMapper(request.Context, shippingContact,
-                                                shipmentItemsnapshotDetails, salesOrder.PaymentMethods,
-                                                salesOrder.Id, arriveByDate != null, arriveByDate,
-                                                shipment.ShippingMethod, request.IsRedFlag, request.SkipCDS, salesOrder.GetIncotermsSelection(), salesOrder.GetOriginalDocumentRequired());
-            var (incotermFulfillmentChoiceResponse, requestBuildContext) = await BuildRequestBuildContextWithIncotermsAsync(fulfillmentChoiceRequest);
-            var (dpeRequest, dpeResponse) = await _fulfillmentChoiceServiceFactory.GetService(fulfillmentChoiceRequest.Context.Region).GetDPEPayloads(requestBuildContext, salesOrder.Id);
-            return (dpeRequest, dpeResponse);
+                var createRequest = _quoteShippingMapper.MapQuoteShipmentCreationRequest(shipmentRequest, quote);
+                return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).CreateQuoteShipments(createRequest);
+            }
+
+            if (quote.Shipments.Count == 1)
+            {
+                shipmentRequest.SelectedShippingOption = quote.Shipments.First().ShippingMethod;
+            }
+
+            return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).UpdateQuoteShipments(shipmentRequest, quote);
+
         }
 
 ---------
