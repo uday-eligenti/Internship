@@ -85,7 +85,26 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 
 --------------
 
+ [ServiceFilter(typeof(AuditLoggingAttribute))]
+        [Route("all/GetAllStoreSettingsData")]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpGet]
+        public IActionResult GetAllStoreSettingsData()
+        {
+            try
+            {
+                var response = _storeSettingsService.GetAllStoreSettingsData();
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogErrorMessage($"Failed to get all store settings toggles:", ex);
+                throw;
+            }
+        }
 
+
+---------
  public SalesOrderUpdateShipmentRequest GetUpdateShipmentsRequest(MultiShipServiceShipment multiShipmentRequest, string shipmentId,
             string[] shippingOptions, FulfillmentChoiceContext context, Dictionary<string, string> salesOrderExtendedProperties, string salesOrderId = "")
         {
