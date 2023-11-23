@@ -278,5 +278,8 @@ public QuoteMultishipmentOperationDetail GetQuoteOperationsRequest(QuoteMultiShi
             //action
             await Assert.ThrowsAsync<Exception>(() => _sut.GetQuoteAsync("quote"));
         }
+ Message: 
+   System.NotSupportedException : Unsupported expression: c => c.GetAsync(It.IsAny<Uri>(), QuoteRepositoryTests.<>c__DisplayClass16_0.cancellationTokenSource.Token)
+   Non-overridable members (here: HttpClient.GetAsync) may not be used in setup / verification expressions.
 
         //
