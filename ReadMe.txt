@@ -82,7 +82,23 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - add desclaimer in inMemory
 - adjust alert height
 - adjust flip card links alignment
+---
 
+public async Task<bool> CreateOrUpdateShipment(QuoteShipmentRequest shipmentRequest)
+        {
+            var quote = await GetQuoteAsync(shipmentRequest.QuoteId);
+            shipmentRequest.Context = await _shippingContactService.AssignCustomerNumbers(shipmentRequest.Context, quote);
+            if (quote.Shipments.IsNullOrEmpty())
+            {
+                var createRequest = _quoteShippingMapper.MapQuoteShipmentCreationRequest(shipmentRequest, quote);
+                return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).CreateQuoteShipments(createRequest);
+            }
+            if (quote.Shipments.Count == 1)
+            {
+                shipmentRequest.SelectedShippingOption = quote.Shipments.First().ShippingMethod;
+            }
+            return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).UpdateQuoteShipments(shipmentRequest, quote);
+        }
 --------------
 public async Task<bool> DeleteShipments(string quoteId, List<QuoteShipment> shipments, List<QuoteMultishipmentOperationDetail> multishipmentOperationDetails = null, bool isEnableMultishipmentOperationEndpoint = false)
         {
