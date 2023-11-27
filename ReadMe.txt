@@ -1,5 +1,14 @@
 ---
-
+  public class QuotePatchMultiShipmentRequest
+  {
+      public QuoteMultishipmentOperationDetail[] Operations { get; set; }   
+  }
+public class QuoteMultishipmentOperationDetail
+{
+    public PatchOperationType OperationType { get; set; }
+    public string ResourceId { get; set; }
+    public QuoteCreateOrUpdateShipmentRequest Value { get; set; }
+}
         public async Task<bool> PatchQuoteItems(string quoteId, List<QuoteItem> quoteItems)
         {
             var uri = _quoteConfigurationSettings.GetPatchQuoteUri(PatchQuoteItemEndpoint, QuoteEndpointVersion, quoteId);
