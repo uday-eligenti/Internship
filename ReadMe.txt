@@ -1,25 +1,25 @@
 ---
-  public class QuotePatchMultiShipmentRequest
-  {
-      public QuoteMultishipmentOperationDetail[] Operations { get; set; }   
-  }
-public class QuoteMultishipmentOperationDetail
-{
-    public PatchOperationType OperationType { get; set; }
-    public string ResourceId { get; set; }
-    public QuoteCreateOrUpdateShipmentRequest Value { get; set; }
-}
-        public async Task<bool> PatchQuoteItems(string quoteId, List<QuoteItem> quoteItems)
+         public async Task<(FulfillmentChoiceRequest, FulfillmentChoiceResponse)> GetDPEPayloads(DPEPayloadsRequest request, SalesOrderDataModel salesOrder, SalesOrderShipment shipment, Contact shippingContact, DateTime? arriveByDate)
         {
-            var uri = _quoteConfigurationSettings.GetPatchQuoteUri(PatchQuoteItemEndpoint, QuoteEndpointVersion, quoteId);
-            var response = await _quoteClient.PatchAsJsonAsync(uri, quoteItems);
-            if (!response.IsSuccessStatusCode)
+            var shipmentItemsnapshotDetails = request.ItemSnapshotDetails.Where(x => shipment.Items.Any(s => s.ItemId == x.SaleOrderItemId)).ToList();
+            shipmentItemsnapshotDetails.Select(i =>
             {
-                throw new Exception(ExceptionLog.LogException(JsonConvert.SerializeObject(quoteItems), response));
-            }
-            return response.IsSuccessStatusCode;
-        
+                var shipmentItem = shipment.Items.Where(x => x.ItemId == i.SaleOrderItemId).FirstOrDefault();
+                i.ShippingChoice = shipment.ShippingMethod;
+                i.InboundShipMethod = shipmentItem.InboundShipMethod;
+                i.MABD = arriveByDate;
+                i.FulFillmentCenter = shipmentItem.ShipFromState;
+                return i;
+            }).ToList();
+            var fulfillmentChoiceRequest = FulfillmentChoiceServiceRequestMapper(request.Context, shippingContact,
+                                                shipmentItemsnapshotDetails, salesOrder.PaymentMethods,
+                                                salesOrder.Id, arriveByDate != null, arriveByDate,
+                                                shipment.ShippingMethod, request.IsRedFlag, request.SkipCDS, salesOrder.GetIncotermsSelection(), salesOrder.GetOriginalDocumentRequired());
+            var (incotermFulfillmentChoiceResponse, requestBuildContext) = await BuildRequestBuildContextWithIncotermsAsync(fulfillmentChoiceRequest);
+            var (dpeRequest, dpeResponse) = await _fulfillmentChoiceServiceFactory.GetService(fulfillmentChoiceRequest.Context.Region).GetDPEPayloads(requestBuildContext, salesOrder.Id);
+            return (dpeRequest, dpeResponse);
         }
+    }
 --
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
