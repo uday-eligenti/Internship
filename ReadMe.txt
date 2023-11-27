@@ -1,25 +1,16 @@
 ---
- List<Models.Pricing.ShippingCharge> GetShippingChargeFromShippingChargeResponse(
-            ShippingChargeDetailsResponse shippingChargeResponse, FulfillmentChoiceResponse fulfillmentChoiceResponse)
-        {
-            if (shippingChargeResponse?.Shipments?.FirstOrDefault()?.ShippingCharges == null) return default;
-            var shippingCharge = new List<Models.Pricing.ShippingCharge>();
-            foreach (var option in fulfillmentChoiceResponse.CommonShippingDetails.OrderByDescending(y => y.IsDefault)
-                .ThenBy(x => x.Priority))
-            {
-                var optionIds = option.Options.Select(o => o.OptionId);
-                var shippingCharges = shippingChargeResponse.Shipments.Select(x =>
-                    x.ShippingCharges.FirstOrDefault(y => optionIds.Contains(y.ShippingOptionId)));
-                shippingCharge.Add(new Models.Pricing.ShippingCharge
-                {
-                    ShippingOptionCode = option.OptionCode,
-                    AdjustedPrice = shippingCharges.Sum(x => Convert.ToDecimal(x?.AdjustedPrice)).ToString(),
-                    UnAdjustedPrice = shippingCharges.Sum(x => Convert.ToDecimal(x?.UnAdjustedPrice)).ToString()
-                });
-            }
-            return shippingCharge;
-        }
 
+        public async Task<bool> PatchQuoteItems(string quoteId, List<QuoteItem> quoteItems)
+        {
+            var uri = _quoteConfigurationSettings.GetPatchQuoteUri(PatchQuoteItemEndpoint, QuoteEndpointVersion, quoteId);
+            var response = await _quoteClient.PatchAsJsonAsync(uri, quoteItems);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception(ExceptionLog.LogException(JsonConvert.SerializeObject(quoteItems), response));
+            }
+            return response.IsSuccessStatusCode;
+        
+        }
 --
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
