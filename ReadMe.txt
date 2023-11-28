@@ -1,18 +1,20 @@
 ---
-  public bool IsTwoTouchSupportedItem(OutputItem outputItem, List<ItemSnapshotDetail> itemSnapshotDetails, bool isPremierCustomer, out bool isSupportedShipMethod)
+        public OutputItemShippingOption GetMaxEDDForMABDItems(List<ItemSnapshotDetail> mabdItems, FulfillmentChoiceResponse fulfillmentChoiceResponse, string selectedShippingChoice)
         {
-            isSupportedShipMethod = false;
-            if (IsTwoTouchProduct(isPremierCustomer, itemSnapshotDetails))
-            {
-                ItemSnapshotDetail itemSnapShot = itemSnapshotDetails.FirstOrDefault(ele => ele.ItemId.EqualsOrdinalIgnoreCase(outputItem.ItemId));
-                if (itemSnapShot.IsTwoTouchItem)
+            var mabd_OutputItems = fulfillmentChoiceResponse.OutputItems.Where(opItem => mabdItems.Any(mabdItem => opItem.ItemId.EqualsOrdinalIgnoreCase(mabdItem.ItemId))).ToList();
+            var outputItemShippingOptionWithMaxEdd = mabd_OutputItems.SelectMany(outputItem => outputItem.ShippingOptions, (outputItem, shippingOption) => new { outputItem, shippingOption })
+                .Where(shippingOptions => (shippingOptions.shippingOption.OptionId.EqualsOrdinalIgnoreCase(selectedShippingChoice) || shippingOptions.shippingOption.OptionCode.EqualsOrdinalIgnoreCase(selectedShippingChoice))
+                                          && !shippingOptions.shippingOption.EstimatedDeliveryDateMax.IsNullOrEmpty())
+                .OrderByDescending(shippingOptions => shippingOptions.shippingOption.EstimatedDeliveryDateMax.ToParseDate())
+                .Select(shippingOptions => new OutputItemShippingOption
                 {
-                    isSupportedShipMethod = Is2TSupportedShipMethod(outputItem, itemSnapShot.TwoTouchShippingMethod);
-                    return true;
-                }
-            }
-            return false;
-        }--
+                    ItemId = shippingOptions.outputItem.ItemId,
+                    ShippingOption = shippingOptions.shippingOption
+                })
+                .FirstOrDefault();
+            return outputItemShippingOptionWithMaxEdd;
+        }
+--
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
 This app has a GET Method
