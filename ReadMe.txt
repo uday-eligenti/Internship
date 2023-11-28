@@ -1,19 +1,9 @@
 ---
-        public OutputItemShippingOption GetMaxEDDForMABDItems(List<ItemSnapshotDetail> mabdItems, FulfillmentChoiceResponse fulfillmentChoiceResponse, string selectedShippingChoice)
+        public bool Is2TMixedCart(bool isPremierCustomer, IEnumerable<ItemSnapshotDetail> itemSnapshotDetails)
         {
-            var mabd_OutputItems = fulfillmentChoiceResponse.OutputItems.Where(opItem => mabdItems.Any(mabdItem => opItem.ItemId.EqualsOrdinalIgnoreCase(mabdItem.ItemId))).ToList();
-            var outputItemShippingOptionWithMaxEdd = mabd_OutputItems.SelectMany(outputItem => outputItem.ShippingOptions, (outputItem, shippingOption) => new { outputItem, shippingOption })
-                .Where(shippingOptions => (shippingOptions.shippingOption.OptionId.EqualsOrdinalIgnoreCase(selectedShippingChoice) || shippingOptions.shippingOption.OptionCode.EqualsOrdinalIgnoreCase(selectedShippingChoice))
-                                          && !shippingOptions.shippingOption.EstimatedDeliveryDateMax.IsNullOrEmpty())
-                .OrderByDescending(shippingOptions => shippingOptions.shippingOption.EstimatedDeliveryDateMax.ToParseDate())
-                .Select(shippingOptions => new OutputItemShippingOption
-                {
-                    ItemId = shippingOptions.outputItem.ItemId,
-                    ShippingOption = shippingOptions.shippingOption
-                })
-                .FirstOrDefault();
-            return outputItemShippingOptionWithMaxEdd;
+            return MultiShipmentHelper.IsMultiShipBasedOn2TMixedCart(itemSnapshotDetails, _featureTogglesService.GetFeatureTogglesAsync().Result);
         }
+
 --
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
