@@ -1,25 +1,20 @@
 ---
-         public async Task<(FulfillmentChoiceRequest, FulfillmentChoiceResponse)> GetDPEPayloads(DPEPayloadsRequest request, SalesOrderDataModel salesOrder, SalesOrderShipment shipment, Contact shippingContact, DateTime? arriveByDate)
+  public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponseNonSupported(UpdateShipmentRequest shipmentRequest, SalesOrderDataModel salesOrder, Contact shippingContact)
         {
-            var shipmentItemsnapshotDetails = request.ItemSnapshotDetails.Where(x => shipment.Items.Any(s => s.ItemId == x.SaleOrderItemId)).ToList();
-            shipmentItemsnapshotDetails.Select(i =>
+            if (!IsTwoTouchProduct(shipmentRequest.Context.IsPremierCustomer, shipmentRequest.ItemSnapshotDetails))
             {
-                var shipmentItem = shipment.Items.Where(x => x.ItemId == i.SaleOrderItemId).FirstOrDefault();
-                i.ShippingChoice = shipment.ShippingMethod;
-                i.InboundShipMethod = shipmentItem.InboundShipMethod;
-                i.MABD = arriveByDate;
-                i.FulFillmentCenter = shipmentItem.ShipFromState;
-                return i;
-            }).ToList();
-            var fulfillmentChoiceRequest = FulfillmentChoiceServiceRequestMapper(request.Context, shippingContact,
-                                                shipmentItemsnapshotDetails, salesOrder.PaymentMethods,
-                                                salesOrder.Id, arriveByDate != null, arriveByDate,
-                                                shipment.ShippingMethod, request.IsRedFlag, request.SkipCDS, salesOrder.GetIncotermsSelection(), salesOrder.GetOriginalDocumentRequired());
-            var (incotermFulfillmentChoiceResponse, requestBuildContext) = await BuildRequestBuildContextWithIncotermsAsync(fulfillmentChoiceRequest);
-            var (dpeRequest, dpeResponse) = await _fulfillmentChoiceServiceFactory.GetService(fulfillmentChoiceRequest.Context.Region).GetDPEPayloads(requestBuildContext, salesOrder.Id);
-            return (dpeRequest, dpeResponse);
+                return null;
+            }
+            var request2T = new UpdateShipmentRequest(shipmentRequest)
+            {
+                ItemSnapshotDetails = shipmentRequest.ItemSnapshotDetails.Where(item => item.IsTwoTouchItem).ToList()
+            };
+            var incotermsSelection = shipmentRequest.IncotermsSelection != null ? shipmentRequest.IncotermsSelection : salesOrder.GetIncotermsSelection();
+            var fulfillmentChoiceServiceRequest = _shipmentChoiceService.FulfillmentChoiceServiceRequestMapper(request2T.Context, shippingContact, request2T.ItemSnapshotDetails,
+                salesOrder.PaymentMethods, salesOrder.Id, false, ArriveByDate: null, null, incotermsSelection: incotermsSelection);
+            fulfillmentChoiceServiceRequest.Is2TRequest = true;
+            return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
         }
-    }
 --
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
