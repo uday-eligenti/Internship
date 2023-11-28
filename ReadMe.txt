@@ -1,20 +1,30 @@
 ---
-  public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponseNonSupported(UpdateShipmentRequest shipmentRequest, SalesOrderDataModel salesOrder, Contact shippingContact)
-        {
-            if (!IsTwoTouchProduct(shipmentRequest.Context.IsPremierCustomer, shipmentRequest.ItemSnapshotDetails))
-            {
-                return null;
-            }
-            var request2T = new UpdateShipmentRequest(shipmentRequest)
-            {
-                ItemSnapshotDetails = shipmentRequest.ItemSnapshotDetails.Where(item => item.IsTwoTouchItem).ToList()
-            };
-            var incotermsSelection = shipmentRequest.IncotermsSelection != null ? shipmentRequest.IncotermsSelection : salesOrder.GetIncotermsSelection();
-            var fulfillmentChoiceServiceRequest = _shipmentChoiceService.FulfillmentChoiceServiceRequestMapper(request2T.Context, shippingContact, request2T.ItemSnapshotDetails,
-                salesOrder.PaymentMethods, salesOrder.Id, false, ArriveByDate: null, null, incotermsSelection: incotermsSelection);
-            fulfillmentChoiceServiceRequest.Is2TRequest = true;
-            return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
-        }
+ public async Task<FulfillmentChoiceResponse> Get2TFulFillmentChoiceResponse(ShipmentRequest request, SalesOrderDataModel salesOrder)
+ {
+     if (IsTwoTouchProduct(request.Context.IsPremierCustomer, request.ItemSnapshotDetails))
+     {
+         var incotermsSelection = request.IncotermsSelection != null ? request.IncotermsSelection : salesOrder.GetIncotermsSelection();
+         var fulfillmentChoiceServiceRequest = new FulfillmentChoiceServiceRequest
+         {
+             Context = request.Context,
+             ShippingContact = request.ShippingContact,
+             ItemSnapshotDetails = request.ItemSnapshotDetails,
+             PaymentMethods = salesOrder.PaymentMethods,
+             SourceId = salesOrder.Id,
+             PatchMABD = false,
+             ArriveByDate = null,
+             SelectedShippingOption = null,
+             IsRedFlag = request.IsRedFlag,
+             SkipCDS = request.SkipCDS,
+             IncotermsSelection = incotermsSelection,
+             HoldReason = salesOrder.GetOriginalDocumentRequired(),
+             Is2TRequest = true
+         };
+
+         return await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
+     }
+     return null;
+ }
 --
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
