@@ -1,20 +1,166 @@
 ---
-  public override async Task<bool> RemoveMABDFromShipment(List<ItemSnapshotDetail> filteredMabdItemSnapshotDetails, SalesOrderDataModel salesOrder, RemoveArriveByDateRequest request,
-      FulfillmentChoiceResponse fulfillmentChoiceResponse)
-  {
-      var isSalesOrderUpdated = false;
-      if (_featureTogglesService.GetFeatureTogglesAsync().Result.IsUSShipmentsFlow)
-      {
-          var mabdItemIds = filteredMabdItemSnapshotDetails.Select(item => item.SaleOrderItemId);
-          var shipmentMABD = salesOrder.Shipments.FirstOrDefault(shipment => shipment.IsMABDShipment(mabdItemIds));
-          isSalesOrderUpdated = await UpdateSalesOrderShipment(salesOrder, request, fulfillmentChoiceResponse, isSalesOrderUpdated, shipmentMABD);
-      }
-      else
-      {
-          await base.RemoveMABDFromShipment(filteredMabdItemSnapshotDetails, salesOrder, request, fulfillmentChoiceResponse);
-      }
-      return isSalesOrderUpdated;
-  }
+ private async Task<bool> ModifyShipments(SalesOrderDataModel salesOrder, ShipmentRequest shipmentRequest)
+ {
+     var incotermsSeelction = shipmentRequest.IncotermsSelection != null ? shipmentRequest.IncotermsSelection : salesOrder.GetIncotermsSelection();
+     var fulfillmentChoiceServiceRequest = _shipmentChoiceService.FulfillmentChoiceServiceRequestMapper(shipmentRequest.Context, shipmentRequest.ShippingContact,
+                             shipmentRequest.ItemSnapshotDetails, salesOrder.PaymentMethods,
+                             salesOrder.Id, false, null, selectedShippingOption: null, false, false, incotermsSeelction);
+     var fulfillmentChoiceResponse = await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
+
+     var deltaShipments = new List<SalesOrderShipment>();
+
+     var deltaShipGroups = new List<ShippingChoiceGroup>();
+     var shipments = _twoTouchService.GetAllNon2TShipments(salesOrder.Shipments, shipmentRequest);
+
+     var shippingChoiceGroupsWithOutput = new List<ItemSnapshotDetailWithOutputItem>();
+     foreach (var itemSnapshotDetail in _twoTouchService.GetAllNon2TItemSnapshotDetails(shipmentRequest))
+     {
+         var (outputItem, shippingChoice) = GetValidShippingChoice(itemSnapshotDetail.ItemId, itemSnapshotDetail.SaleOrderItemId);
+         shippingChoiceGroupsWithOutput.Add(new ItemSnapshotDetailWithOutputItem
+         {
+             ItemSnapshotDetail = itemSnapshotDetail,
+             OutputItem = outputItem,
+             ValidShippingChoice = shippingChoice,
+             ShipmentName = GetShipmentName(shippingChoice)
+         });
+     }
+
+     var leadTimeDetails = new List<LeadTimeDetail>();
+     var shippingChoiceGroups = GetShippingGroups(shippingChoiceGroupsWithOutput, shipmentRequest.Context?.IsPremierCustomer ?? false);
+     var contact = shipments.FirstOrDefault()?.ShippingContact;
+     var othersShippingOptions = shipments?.FirstOrDefault()?.ShippingOptions?.ToArray();
+
+     var shippingInstructions = shipmentRequest.ShippingInstructions ?? shipments.FirstOrDefault()?.Instructions;
+     if (shippingInstructions != null)
+         shipmentRequest.ShippingInstructions = shippingInstructions;
+
+     if (shipments.Count == shippingChoiceGroups.Count)
+     {
+         var updateShipmentFromGroupsStatus = await UpdateShipmentFromGroups(shipments, shippingChoiceGroups);
+         if (!updateShipmentFromGroupsStatus) return false;
+         await _leadTimeDetailsService.UpdateLeadTimeDetailsToSalesOrder(leadTimeDetails, fulfillmentChoiceResponse.MaxLeadTimeItemId.ToString(), salesOrder.Id);
+         return true;
+     }
+
+     if (shipments.Count > shippingChoiceGroups.Count)
+     {
+         var shipmentsToBeUpdated = shipments.Take(shippingChoiceGroups.Count).ToList();
+         var updateShippingChoiceGroup = await UpdateShipmentFromGroups(shipmentsToBeUpdated, shippingChoiceGroups);
+         if (!updateShippingChoiceGroup) return false;
+         deltaShipments = shipments.Where(shipment => !shipmentsToBeUpdated.Any(shp => shp.Id.EqualsOrdinalIgnoreCase(shipment.Id)))?.ToList();
+     }
+
+     else if (shipments.Count < shippingChoiceGroups.Count)
+     {
+         var groupsToBeUpdated = shippingChoiceGroups.Take(shipments.Count);
+         var updateShippingChoiceGroup = await UpdateShipmentFromGroups(shipments, groupsToBeUpdated);
+         if (!updateShippingChoiceGroup) return false;
+         shippingChoiceGroups.RemoveRange(0, shipments.Count);
+         deltaShipGroups = shippingChoiceGroups;
+     }
+
+     if (deltaShipments.Any())
+     {
+         var clearShipments = await ClearShipments(salesOrder.Id, deltaShipments);
+         if (!clearShipments) return false;
+     }
+
+     if (deltaShipGroups.Any())
+     {
+         var addNewShipmentsStatus = await AddNewShipments(deltaShipGroups);
+         if (!addNewShipmentsStatus) return false;
+     }
+
+     return true;
+
+     string GetShipmentName(string optionId)
+     {
+         var shippingOptionContent = _shippingOptionContentBuilder.MapContent(shipmentRequest.ShippingOptionContent);
+         var shippingDetail = fulfillmentChoiceResponse.CommonShippingDetails?.FirstOrDefault(x => x.Options.Any(y => y.OptionId == optionId));
+         var ShipmentName = !fulfillmentChoiceResponse.IsFallBackResult && shippingDetail != null ?
+                                 shippingOptionContent?.DeliveryOptions?.GetValueOrDefault(shippingDetail?.OptionCode) ?? shippingDetail?.Description : shippingOptionContent?.Strings?.DefaultShippingMethodDescription;
+         return ShipmentName;
+     }
+
+     List<ShippingChoiceGroup> GetShippingGroups(List<ItemSnapshotDetailWithOutputItem> shippingChoiceGroupsWithOutput, bool IsPremierCustomer)
+     {
+         var shippingChoiceGroups = new List<ShippingChoiceGroup>();
+
+         foreach (var shippingGroup in shippingChoiceGroupsWithOutput?.GroupBy(shippingChoice => shippingChoice.ValidShippingChoice))
+         {
+             var shippingChoiceGroupItems = shippingGroup.ToList();
+             var readyStockItems = shippingGroup?.Where(x => x.ItemSnapshotDetail.IsPickOrder)?.ToList();
+
+             if (IsReadyStockEnabled(IsPremierCustomer) && readyStockItems.Any())
+             {
+                 var readyStockParentItems = readyStockItems?.Where(x => x.ItemSnapshotDetail.ParentItemId.IsNullOrEmpty() || x.ItemSnapshotDetail.ParentItemId == Guid.Empty.ToString())?.ToList();
+                 var allChildItems = shippingChoiceGroupItems?.Where(x => !x.ItemSnapshotDetail.ParentItemId.IsNullOrEmpty() && x.ItemSnapshotDetail.ParentItemId != Guid.Empty.ToString())?.ToList();
+
+                 foreach (var parentItem in readyStockParentItems)
+                 {
+                     var readyStockItemsParentAndChild = new List<ItemSnapshotDetailWithOutputItem>();
+                     readyStockItemsParentAndChild.AddRange(_itemHelper.GetChildItems(parentItem.ItemSnapshotDetail.ItemId, allChildItems, new List<ItemSnapshotDetailWithOutputItem>()));
+                     readyStockItemsParentAndChild.Add(parentItem);
+
+                     shippingChoiceGroups.Add(new ShippingChoiceGroup
+                     {
+                         ShippingChoice = shippingGroup.Key,
+                         ItemSnapshotDetailWithOutputItems = readyStockItemsParentAndChild
+                     });
+
+                     shippingChoiceGroupItems.RemoveAll(x => readyStockItemsParentAndChild.Any(y => y.ItemSnapshotDetail.ItemId.Equals(x.ItemSnapshotDetail?.ItemId)));
+                 }
+             }
+
+             if (!shippingChoiceGroupItems.IsNullOrEmpty())
+             {
+                 shippingChoiceGroups.Add(new ShippingChoiceGroup
+                 {
+                     ShippingChoice = shippingGroup.Key,
+                     ItemSnapshotDetailWithOutputItems = shippingChoiceGroupItems
+                 });
+             }
+         }
+         return shippingChoiceGroups;
+     }
+
+     (OutputItem outputItem, string shippingChoice) GetValidShippingChoice(string itemId, string saleOrderItemId)
+     {
+         var shippingChoice = shipments.FirstOrDefault(x => x.Items.Any(a => a.ItemId == saleOrderItemId))?.ShippingMethod;
+         var itemDetail = fulfillmentChoiceResponse.OutputItems.FirstOrDefault(item => item.ItemId == itemId);
+         if (!itemDetail.ShippingOptions.Any(x => x.OptionId == shippingChoice))
+         {
+             shippingChoice = GetShippingChoice(shipmentRequest.Context.IsPremierCustomer, fulfillmentChoiceResponse, itemId);
+         }
+         return (itemDetail, shippingChoice);
+     }
+
+     async Task<bool> UpdateShipmentFromGroups(List<SalesOrderShipment> shipments, IEnumerable<ShippingChoiceGroup> shippingGroups)
+     {
+         int index = 0;
+         foreach (var shippingChoiceGroup in shippingGroups)
+         {
+             var updateShipmentStatus = await UpdateShipmentFromItemSnapshotDetail(shipments[index], shippingChoiceGroup.ShippingChoice, shippingChoiceGroup.ItemSnapshotDetailWithOutputItems, shipmentRequest.ShippingContact, shipmentRequest,
+                 shipmentRequest.ShippingInstructions, leadTimeDetails, salesOrder, fulfillmentChoiceResponse);
+             if (!updateShipmentStatus) return false;
+             index++;
+         }
+
+         return true;
+     }
+
+     async Task<bool> AddNewShipments(List<ShippingChoiceGroup> deltaShippingChoiceGroups)
+     {
+         foreach (var shippingChoiceGroup in deltaShippingChoiceGroups)
+         {
+             var createShipmentResult = await CreateShipmentAndLeadTimeOnUpdateAddress(shippingChoiceGroup.ShippingChoice, shippingChoiceGroup.ItemSnapshotDetailWithOutputItems.FirstOrDefault().ShipmentName,
+                 shipmentRequest.ShippingContact, shippingChoiceGroup.ItemSnapshotDetailWithOutputItems.Select(x => x.ItemSnapshotDetail).ToList(), shipmentRequest, fulfillmentChoiceResponse.OutputItems, othersShippingOptions, leadTimeDetails);
+             if (!createShipmentResult) return false;
+         }
+
+         return true;
+     }
+ }
 --
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
