@@ -1,43 +1,21 @@
 ---
- public ShippingMethodResponse BuildItemDetails(ShippingMethodRequest shippingMethodRequest)
-        {
-            var itemLevelShippingOption = new List<ItemLevelShippingOption>();
-            var currencyCultureInfo = new CultureInfo(shippingMethodRequest.Context?.CurrencyCultureInfo ?? DefaultCurrencyCulture);
-            var displayMABD = shippingMethodRequest.ItemSnapshotDetails.IsNotNullOrEmpty() &&
-                shippingMethodRequest.ItemSnapshotDetails.Any(itemSnapshot => itemSnapshot.IsMABDItem);
-            shippingMethodRequest.ItemSnapshotDetails.ForEach(item =>
-            {
-                var itemLevelShipping = _shippingMapper.MapItemSnapshotDetail(item);
-                itemLevelShipping.ServiceTags = item?.ServiceTags != null ? BuildServiceTagDetails(item?.ServiceTags) : null;
-                itemLevelShipping.UnitPrice = item.UnitPrice != null ? Money.GetFormattedCurrency(item.UnitPrice, shippingMethodRequest.Context.Currency, currencyCultureInfo, shippingMethodRequest.Context.IsPremierCustomer) : null;
-                itemLevelShipping.Price = item.Price != null ? Money.GetFormattedCurrency(item.Price, shippingMethodRequest.Context.Currency, currencyCultureInfo, shippingMethodRequest.Context.IsPremierCustomer) : null;
-                itemLevelShipping.DiscountedPrice = item.DiscountedPrice != null ? Money.GetFormattedCurrency(item.DiscountedPrice, shippingMethodRequest.Context.Currency, currencyCultureInfo, shippingMethodRequest.Context.IsPremierCustomer) : null;
-                itemLevelShipping.UnitSalesPrice = item.UnitSalesPrice != null ? Money.GetFormattedCurrency(item.UnitSalesPrice, shippingMethodRequest.Context.Currency, currencyCultureInfo, shippingMethodRequest.Context.IsPremierCustomer) : null;
-                itemLevelShipping.UnitDiscount = item.UnitDiscount != null ? Money.GetFormattedCurrency(item.UnitDiscount, shippingMethodRequest.Context.Currency, currencyCultureInfo, shippingMethodRequest.Context.IsPremierCustomer) : null;
-                itemLevelShipping.UnitCheckoutPrice = item.UnitCheckoutPrice != null ? Money.GetFormattedCurrency(item.UnitCheckoutPrice, shippingMethodRequest.Context.Currency, currencyCultureInfo, shippingMethodRequest.Context.IsPremierCustomer) : null;
-                itemLevelShipping.UnitStandardPrice = item.UnitStandardPrice != null ? Money.GetFormattedCurrency(item.UnitStandardPrice, shippingMethodRequest.Context.Currency, currencyCultureInfo, shippingMethodRequest.Context.IsPremierCustomer) : null;
-                itemLevelShipping.FlexLabel = shippingMethodRequest.ShippingContent?.Strings?.FlexLabel ?? shippingMethodRequest.ShippingOptionContent?.GetValueOrDefault(ShippingOptionContentKeys.FlexLabel);
-                itemLevelShipping.HideTechSpecs = item.ProductType.IsNotNullOrEmpty() && ((item.ProductType.IsArbProduct()) || (item.ProductType.IsSNPProduct() && item.HasServiceSku));
-                if (item.IsRealTimeDownload)
-                {
-                    ItemShippingOption itemShippingOption = new ItemShippingOption
-                    {
-                        EstimatedDeliveryDateLabel = shippingMethodRequest.ShippingContent?.Strings?.RealTimeDownloadPaymentLabel ?? shippingMethodRequest.ShippingOptionContent?.GetValueOrDefault(ShippingOptionContentKeys.RealTimeDownloadPaymentLabel),
-                        IsSelected = true
-                    };
-                    itemLevelShipping.SoftwareDownloadable = true;
-                    itemLevelShipping.ItemShippingOptions = new List<ItemShippingOption>() { itemShippingOption };
-                }
-                itemLevelShippingOption.Add(itemLevelShipping);
-            });
-            return new ShippingMethodResponse
-            {
-                UserContext = _userContextMapper.BuildUserContext(shippingMethodRequest.Context),
-                IsPostalCodeExist = false,
-                ItemLevelShippingOptions = itemLevelShippingOption,
-                EnableMABD = displayMABD
-            };
-        }--
+  public override async Task<bool> RemoveMABDFromShipment(List<ItemSnapshotDetail> filteredMabdItemSnapshotDetails, SalesOrderDataModel salesOrder, RemoveArriveByDateRequest request,
+      FulfillmentChoiceResponse fulfillmentChoiceResponse)
+  {
+      var isSalesOrderUpdated = false;
+      if (_featureTogglesService.GetFeatureTogglesAsync().Result.IsUSShipmentsFlow)
+      {
+          var mabdItemIds = filteredMabdItemSnapshotDetails.Select(item => item.SaleOrderItemId);
+          var shipmentMABD = salesOrder.Shipments.FirstOrDefault(shipment => shipment.IsMABDShipment(mabdItemIds));
+          isSalesOrderUpdated = await UpdateSalesOrderShipment(salesOrder, request, fulfillmentChoiceResponse, isSalesOrderUpdated, shipmentMABD);
+      }
+      else
+      {
+          await base.RemoveMABDFromShipment(filteredMabdItemSnapshotDetails, salesOrder, request, fulfillmentChoiceResponse);
+      }
+      return isSalesOrderUpdated;
+  }
+--
 This Website is for fetching the file content and displaying the content in the end point.
 This application is developed using python with Flask web framework.
 This app has a GET Method
