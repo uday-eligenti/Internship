@@ -1,4 +1,19 @@
 ---
+private IncotermsSelection GetIncotermsDetail(bool IsIncotermsSelectionValid, IncotermsSelection shippingInfo)
+        {
+            if (!IsIncotermsSelectionValid)
+            {
+                return new IncotermsSelection
+                {
+                    Incoterms = null,
+                    PortOfDestination = null,
+                    ShippingCarrier = null,
+                };
+            }
+            return shippingInfo;
+        }
+---
+
  private async Task<bool> ModifyShipments(SalesOrderDataModel salesOrder, ShipmentRequest shipmentRequest)
  {
      var incotermsSeelction = shipmentRequest.IncotermsSelection != null ? shipmentRequest.IncotermsSelection : salesOrder.GetIncotermsSelection();
