@@ -1,20 +1,18 @@
 ---
-public void UpdatePriceAndShipmentDataModelForSingleShipment(PriceAndShipmentDataModel priceAndShipmentDataModel, CommonShipment shipment)
-        {
-            priceAndShipmentDataModel.ShippingInstructions = shipment?.ShippingInstructions;
-            priceAndShipmentDataModel.InstallationInstructions = shipment?.InstallationInstructions;
-            priceAndShipmentDataModel.ShippingOptionId = shipment?.ShippingMethod;
-            priceAndShipmentDataModel.DesignatedCarrierModel = shipment?.DesignatedCarrier;
-            priceAndShipmentDataModel.ShippingAddressExistInshipment = shipment?.SalesOrderShipment != null && shipment?.SalesOrderShipment?.ShippingContact?.Address != null;
-            priceAndShipmentDataModel.Shipments = new List<SalesOrderShipment>() { };
-            if (shipment?.SalesOrderShipment != null)
-                priceAndShipmentDataModel.Shipments.Add(shipment?.SalesOrderShipment);
-            priceAndShipmentDataModel.QuoteShipments = new List<Models.Quote.Shipment.QuoteShipment>() { };
-            if (shipment?.QuoteShipment != null)
-                priceAndShipmentDataModel.QuoteShipments.Add(shipment.QuoteShipment);
-            if (shipment?.SalesOrderShipment != null)
-                priceAndShipmentDataModel.ArriveByDate = !_displayDateFormatter.IsInvalidDate(shipment?.SalesOrderShipment?.ArriveByDate) ? shipment.SalesOrderShipment.ArriveByDate : null;
-            else priceAndShipmentDataModel.ArriveByDate = !_displayDateFormatter.IsInvalidDate(shipment?.QuoteShipment?.ArriveByDate) ? shipment.QuoteShipment.ArriveByDate : null;
+public async Task<bool> CreateOrUpdateShipment(QuoteShipmentRequest shipmentRequest)
+ {
+            var quote = await GetQuoteAsync(shipmentRequest.QuoteId);
+            shipmentRequest.Context = await _shippingContactService.AssignCustomerNumbers(shipmentRequest.Context, quote);
+            if (quote.Shipments.IsNullOrEmpty())
+            {
+                var createRequest = _quoteShippingMapper.MapQuoteShipmentCreationRequest(shipmentRequest, quote);
+                return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).CreateQuoteShipments(createRequest);
+            }
+            if (quote.Shipments.Count == 1)
+            {
+                shipmentRequest.SelectedShippingOption = quote.Shipments.First().ShippingMethod;
+            }
+            return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).UpdateQuoteShipments(shipmentRequest, quote);
         }
 ---
 
