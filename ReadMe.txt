@@ -1,16 +1,20 @@
 ---
-private IncotermsSelection GetIncotermsDetail(bool IsIncotermsSelectionValid, IncotermsSelection shippingInfo)
+public void UpdatePriceAndShipmentDataModelForSingleShipment(PriceAndShipmentDataModel priceAndShipmentDataModel, CommonShipment shipment)
         {
-            if (!IsIncotermsSelectionValid)
-            {
-                return new IncotermsSelection
-                {
-                    Incoterms = null,
-                    PortOfDestination = null,
-                    ShippingCarrier = null,
-                };
-            }
-            return shippingInfo;
+            priceAndShipmentDataModel.ShippingInstructions = shipment?.ShippingInstructions;
+            priceAndShipmentDataModel.InstallationInstructions = shipment?.InstallationInstructions;
+            priceAndShipmentDataModel.ShippingOptionId = shipment?.ShippingMethod;
+            priceAndShipmentDataModel.DesignatedCarrierModel = shipment?.DesignatedCarrier;
+            priceAndShipmentDataModel.ShippingAddressExistInshipment = shipment?.SalesOrderShipment != null && shipment?.SalesOrderShipment?.ShippingContact?.Address != null;
+            priceAndShipmentDataModel.Shipments = new List<SalesOrderShipment>() { };
+            if (shipment?.SalesOrderShipment != null)
+                priceAndShipmentDataModel.Shipments.Add(shipment?.SalesOrderShipment);
+            priceAndShipmentDataModel.QuoteShipments = new List<Models.Quote.Shipment.QuoteShipment>() { };
+            if (shipment?.QuoteShipment != null)
+                priceAndShipmentDataModel.QuoteShipments.Add(shipment.QuoteShipment);
+            if (shipment?.SalesOrderShipment != null)
+                priceAndShipmentDataModel.ArriveByDate = !_displayDateFormatter.IsInvalidDate(shipment?.SalesOrderShipment?.ArriveByDate) ? shipment.SalesOrderShipment.ArriveByDate : null;
+            else priceAndShipmentDataModel.ArriveByDate = !_displayDateFormatter.IsInvalidDate(shipment?.QuoteShipment?.ArriveByDate) ? shipment.QuoteShipment.ArriveByDate : null;
         }
 ---
 
