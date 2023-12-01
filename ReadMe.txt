@@ -1,3 +1,142 @@
+        public async Task<bool> UpdateQuoteShippingChoice(QuoteUpdateShippingChoiceRequest request)
+        {
+            var quote = await GetQuoteAsync(request.QuoteId);
+
+            var featureToggles = GetFeatureToggles();
+
+            var shippingChoiceGroups = request.ItemLevelShippingChoices.GroupBy(x => x.OptionId).ToList();
+            var quoteShipment = quote.Shipments.FirstOrDefault();
+
+            var largerOrderItems = request?.ItemLevelShippingChoices?.Where(x => x.IsLargeOrder);
+            var itemsSupportablityInfo = new Dictionary<string, string>();
+            var isLargeOrder = largerOrderItems != null && largerOrderItems.Any();
+            var fdd = string.Empty;
+
+            if (isLargeOrder)
+            {
+                itemsSupportablityInfo = largerOrderItems.Select(cond => new KeyValuePair<string, string>(cond.ItemId, cond.Supportability)).ToDictionary(dict => dict.Key, dict => dict.Value);
+                fdd = request.FuturisticDeliveryDate;
+            }
+
+            if (featureToggles.IsUpdateShipmentsEnabled)
+            {
+                var excessShipments = quote.Shipments?.Where(x => !shippingChoiceGroups.Select(x => x.Key).Contains(x.ShippingMethod)).ToList();
+                foreach (var shippingChoiceGroup in shippingChoiceGroups)
+                {
+                    var allItems = shippingChoiceGroup.ToList();
+                    var mabdShippingChoiceItems = allItems?.Where(item => item.IsMABDItem && !item.IsPickOrder);
+
+                    var arriveByDate = request.ArriveByDate ?? mabdShippingChoiceItems.Select(item => item.EstimatedDeliveryDateMax)?.Max();
+                    quoteShipment = quote.Shipments?.FirstOrDefault(x => shippingChoiceGroup.Key.EqualsOrdinalIgnoreCase(x.ShippingMethod));
+
+                    if (quoteShipment != null)
+                    {
+                        var shipmentUpdated = await UpdateShipmentForShippingChoice(quoteShipment, shippingChoiceGroup.Key, shippingChoiceGroup.ToList(), arriveByDate);
+                        if (!shipmentUpdated) return false;
+                        continue;
+                    }
+
+                    if (excessShipments.Any())
+                    {
+                        var shipmentUpdated = await UpdateShipmentForShippingChoice(excessShipments.First(), shippingChoiceGroup.Key, shippingChoiceGroup.ToList(), arriveByDate);
+                        if (!shipmentUpdated) return false;
+                        excessShipments.RemoveAt(0);
+                    }
+                    else
+                    {
+                        var shipmentCreated = await CreateShippingChoiceShipment(shippingChoiceGroup);
+                        if (!shipmentCreated) return false;
+                    }
+                }
+                if (excessShipments.Any())
+                {
+                    var clearShipments = await DeleteShipments(quote.Id, excessShipments, multishipmentOperationList, isEnableMultishipmentOperationEndpoint);
+                    if (!clearShipments) return false;
+                }
+            }
+            else
+            {
+                if (!quote.Shipments.IsNullOrEmpty())
+                {
+                    if (isEnableMultishipmentOperationEndpoint)
+                    {
+                        foreach (var item in quote.Shipments)
+                        {
+                            multishipmentOperationList.Add(MapQuoteMultishipmentsDetails(MapQuoteShippingChoiceRequest(item), PatchOperationType.Remove));
+                        }
+                    }
+                    else
+                    {
+                        await _quoteRepository.DeleteAllShipments(request.QuoteId);
+                    }
+                }
+
+                foreach (var shippingChoiceGroup in shippingChoiceGroups)
+                {
+                    var createQuoteResult = await CreateShippingChoiceShipment(shippingChoiceGroup);
+                    if (!createQuoteResult) return false;
+                }
+            }
+
+            await _extendedPropertiesService.AddExtendedProperties(_quoteRepository, quoteShipment?.ShippingContact?.Address.Country, quote.Id, isLargeOrder, itemsSupportablityInfo, quote.GetLargeOrderExtendedProperties());
+
+            // Send supportability to quote if sent to shipping service
+            if (request.ItemLevelShippingChoices.Any(x => !string.IsNullOrWhiteSpace(x.Supportability)))
+            {
+                var outputItems = largerOrderItems.Select(x => new OutputItem
+                {
+                    ItemId = x.ItemId,
+                    Supportability = x.Supportability
+                });
+                await _quoteShipmentService.PatchSupportability(quote, outputItems);
+            }
+
+            await PatchQuoteMultishipments(multishipmentOperationList, quote.Id);
+
+            return true;
+
+            async Task<bool> CreateShippingChoiceShipment(IGrouping<string, ItemLevelShippingChoice> shippingChoiceGroup)
+            {
+                var createQuoteRequest = _quoteShippingMapper.MapQuoteShippingChoiceRequest(quoteShipment, shippingChoiceGroup, request);
+                createQuoteRequest.Items = BuildQuoteItemDetails(shippingChoiceGroup.ToList(), quote, request.SkipShipmentItemDetails);
+
+                createQuoteRequest.FuturisticDeliveryDate = fdd;
+
+                if (isEnableMultishipmentOperationEndpoint)
+                {
+                    multishipmentOperationList.Add(MapQuoteMultishipmentsDetails(createQuoteRequest, PatchOperationType.Modify));
+                    return true;
+                }
+                else
+                {
+
+                    return await _quoteRepository.CreateQuoteShipment(createQuoteRequest, request.QuoteId);
+                }
+            }
+
+            async Task<bool> UpdateShipmentForShippingChoice(QuoteShipment shipment, string deliveryMethod, List<ItemLevelShippingChoice> items, string arriveByDate)
+            {
+                var updateShipmentRequest = new QuoteCreateOrUpdateShipmentRequest
+                {
+                    ShipmentId = shipment.Id,
+                    ShippingMethod = deliveryMethod,
+                    ShipmentName = items?.FirstOrDefault()?.ShipmentName,
+                    Items = BuildQuoteItemDetails(items, quote, request.SkipShipmentItemDetails, arriveByDate),
+                    Instructions = request.ShippingInstructions,
+                    InstallationInstructions = request.InstallationInstructions,
+                    DesignatedCarrier = deliveryMethod.EqualsOrdinalIgnoreCase(DeliveryMethodsConstants.DesignatedCarrierCode) ?
+                                    request.DesignatedCarrier ?? shipment.DesignatedCarrier : new DesignatedCarrier(),
+                    FuturisticDeliveryDate = request.FuturisticDeliveryDate,
+                    IncoTerms = request.IncoTermsFinalResponse?.Incoterms,
+                    DeliveryCity = request.IncoTermsFinalResponse?.PortOfDestination,
+                    ShippingCarrier = request.IncoTermsFinalResponse?.ShippingCarrier,
+                    ArriveByDate = arriveByDate
+                };
+
+                return await _quoteShipmentService.UpdateShipment(shipment.Id, quote.Id, updateShipmentRequest, quote, multishipmentOperationList);
+            }
+        }
+
 ---
 public async Task<bool> CreateOrUpdateShipment(QuoteShipmentRequest shipmentRequest)
  {
