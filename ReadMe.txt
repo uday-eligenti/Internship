@@ -1,3 +1,22 @@
+protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(_envConfigSettings.QuoteServiceSettings.ApiKey) || string.IsNullOrWhiteSpace(_envConfigSettings.QuoteServiceSettings.Secret))
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.Forbidden)
+        {
+            ReasonPhrase = "Authentication header couldn't be empty."
+        };
+        var tsc = new TaskCompletionSource<HttpResponseMessage>();
+        tsc.SetResult(response);
+        return await tsc.Task;
+    }
+
+    request.Headers.Authorization = new AuthenticationHeaderValue(_envConfigSettings.QuoteServiceSettings.ApiKey, _envConfigSettings.QuoteServiceSettings.Secret);
+    return await base.SendAsync(request, cancellationToken);
+}
+
+
+----
         public async Task<bool> UpdateQuoteShippingChoice(QuoteUpdateShippingChoiceRequest request)
         {
             var quote = await GetQuoteAsync(request.QuoteId);
