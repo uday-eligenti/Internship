@@ -1,21 +1,19 @@
-protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-{
-    if (string.IsNullOrWhiteSpace(_envConfigSettings.QuoteServiceSettings.ApiKey) || string.IsNullOrWhiteSpace(_envConfigSettings.QuoteServiceSettings.Secret))
-    {
-        var response = new HttpResponseMessage(HttpStatusCode.Forbidden)
+public async Task<List<MultiShipmentItem>> MapMultishipItems(List<ItemLevelShippingOption> itemLevelShippingOptions)
         {
-            ReasonPhrase = "Authentication header couldn't be empty."
-        };
-        var tsc = new TaskCompletionSource<HttpResponseMessage>();
-        tsc.SetResult(response);
-        return await tsc.Task;
-    }
-
-    request.Headers.Authorization = new AuthenticationHeaderValue(_envConfigSettings.QuoteServiceSettings.ApiKey, _envConfigSettings.QuoteServiceSettings.Secret);
-    return await base.SendAsync(request, cancellationToken);
-}
-
-
+            var multiShipItems = new List<MultiShipmentItem>() { };
+            foreach (var itemLevelShippingOption in itemLevelShippingOptions)
+            {
+                var item = new MultiShipmentItem() { };
+                item.ItemId = itemLevelShippingOption.ItemId;
+                item.ItemName = itemLevelShippingOption.ItemName;
+                item.ImageUrl = itemLevelShippingOption.ImageUrl;
+                item.Quantity = itemLevelShippingOption.Quantity;
+                item.ParentItemId = itemLevelShippingOption.ParentItemId == Guid.Empty || itemLevelShippingOption.ParentItemId is null ? null : itemLevelShippingOption.ParentItemId.ToString();
+                item.BaseParentItemId = string.IsNullOrEmpty(item.ParentItemId) ? item.ParentItemId : await getBaseParentItemId(item.ParentItemId, itemLevelShippingOptions);
+                multiShipItems.Add(item);
+            }
+            return await Task.FromResult(multiShipItems);
+        }
 ----
         public async Task<bool> UpdateQuoteShippingChoice(QuoteUpdateShippingChoiceRequest request)
         {
