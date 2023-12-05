@@ -1,3 +1,36 @@
+ public List<LeadTimeDetail> BuildLeadTimeDetails2TNonSupported(List<string> itemIds, List<OutputItem> outputItems)
+        {
+            var leadTimeDetails = new List<LeadTimeDetail>();
+            if (itemIds.IsNullOrEmpty())
+                throw new ArgumentNullException(nameof(itemIds));
+            if (outputItems.IsNullOrEmpty())
+                throw new ArgumentNullException(nameof(outputItems));
+            foreach (var itemId in itemIds)
+            {
+                var outputItem =
+                    outputItems.FirstOrDefault(x => x.ItemId.EqualsOrdinalIgnoreCase(itemId));
+                leadTimeDetails.Add(new LeadTimeDetail
+                {
+                    OpenBasketItemId = itemId,
+                    CceEnabled = true,
+                    EstimatedShipDateRange = new DateRange
+                    {
+                        Max = ValidateDate(outputItem.EstimatedShipDateMax),
+                        Min = ValidateDate(outputItem.EstimatedShipDateMin)
+                    },
+                    EstimatedDeliveryDateRange = new DateRange
+                    {
+                        Max = ValidateDate(outputItem.EstimatedDeliveryDateMax),
+                        Min = ValidateDate(outputItem.EstimatedDeliveryDateMin)
+                    },
+                    LeadTimeBreakUp = outputItem.SDSEnabled ? outputItem.LeadTimeDetails + "SDSEnabled=\"True\";" : outputItem.LeadTimeDetails
+                });
+            }
+            return leadTimeDetails;
+        }
+
+
+-----
 public async Task<List<MultiShipmentItem>> MapMultishipItems(List<ItemLevelShippingOption> itemLevelShippingOptions)
         {
             var multiShipItems = new List<MultiShipmentItem>() { };
