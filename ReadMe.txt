@@ -1,3 +1,12 @@
+ Message: 
+   System.ArgumentOutOfRangeException : The UTC time represented when the offset is applied must be between year 0 and 10,000. (Parameter 'offset')
+
+  priceAndShipmentDataModel.LeadtimeDetails[0].EstimatedDeliveryDateRange = new DateRange()
+ {
+     Min = DateTime.Now,
+     Max = DateTime.MinValue
+ };
+--
  public List<LeadTimeDetail> BuildLeadTimeDetails2TNonSupported(List<string> itemIds, List<OutputItem> outputItems)
         {
             var leadTimeDetails = new List<LeadTimeDetail>();
