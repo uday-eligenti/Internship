@@ -1,11 +1,29 @@
- Message: 
-   System.ArgumentOutOfRangeException : The UTC time represented when the offset is applied must be between year 0 and 10,000. (Parameter 'offset')
-
-  priceAndShipmentDataModel.LeadtimeDetails[0].EstimatedDeliveryDateRange = new DateRange()
- {
-     Min = DateTime.Now,
-     Max = DateTime.MinValue
- };
+ public static void MapChildItemsDefaultOptionToParent(this FulfillmentChoiceResponse fulfillmentChoiceResponse, List<ItemSnapshotDetail> allChildItems, bool isPremier)
+        {
+            if (isPremier)
+            {
+                //For each Child, Check Parent and its default is same, if not set its default same as Parent, so that they will be in same Shipment.
+                foreach (var childItem in allChildItems)
+                {
+                    var parentDefaultShippingOption = fulfillmentChoiceResponse.OutputItems.Where(i => i.ItemId == childItem.ParentItemId).FirstOrDefault().ShippingOptions.Where(s => s.IsDefault == true).FirstOrDefault()?.OptionId;
+                    var childDefaultShippingOption = fulfillmentChoiceResponse.OutputItems.Where(i => i.ItemId == childItem.ItemId).FirstOrDefault().ShippingOptions.Where(s => s.IsDefault == true).FirstOrDefault()?.OptionId;
+                    //For Premier check if child item Delivery method is same as parent, if not set it to Parent
+                    if (parentDefaultShippingOption != childDefaultShippingOption)
+                    {
+                        var childOutputItem = fulfillmentChoiceResponse.OutputItems.Where(i => i.ItemId == childItem.ItemId).FirstOrDefault().ShippingOptions;
+                        var correctOption = childOutputItem.Where(x => x.OptionId == parentDefaultShippingOption).FirstOrDefault();
+                        if (correctOption != null)
+                        {
+                            //Reset Default to Correct Option
+                            var defaultOption = childOutputItem.Where(x => x.IsDefault == true).FirstOrDefault();
+                            if (defaultOption != null)
+                                defaultOption.IsDefault = false;
+                            correctOption.IsDefault = true;
+                        }
+                    }
+                }
+            }
+        }
 --
  public List<LeadTimeDetail> BuildLeadTimeDetails2TNonSupported(List<string> itemIds, List<OutputItem> outputItems)
         {
