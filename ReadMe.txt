@@ -1,4 +1,84 @@
 ---
+       public override async Task<bool> UpdateShipmentForShippingChoice(IEnumerable<IGrouping<string, ItemLevelShippingChoice>> shippingChoiceGroups, SalesOrderDataModel salesOrder, Contact contact, ShipmentShippingChoiceRequest request,
+           string shippingInstructions, string[] othersShippingOptions, List<LeadTimeDetail> leadTimeDetails)
+       {
+           //Add FDD & extended Properties for FDD
+           var largerOrderItems = request?.ItemLevelShippingChoices.Where(c => c.IsLargeOrder);
+           if (largerOrderItems.Any())
+           {
+               var itemsSupportablityInfo = new Dictionary<string, string>();
+               itemsSupportablityInfo = largerOrderItems.Select(cond => new KeyValuePair<string, string>(cond.ItemId, cond.Supportability)).ToDictionary(dict => dict.Key, dict => dict.Value);
+               await AddFddSalesOrderExtendedProperties(
+                   request.Context.Country,
+                   request.SalesOrderId,
+                   largerOrderItems.Any(),
+                   itemsSupportablityInfo,
+                   salesOrder.GetLargeOrderExtendedProperties());
+           }
+
+           if (_featureTogglesService.GetFeatureTogglesAsync().Result.IsUSShipmentsFlow && salesOrder.Shipments.Any() && shippingChoiceGroups.Any())
+           {
+               if (!_featureTogglesService.GetFeatureTogglesAsync().Result.IsClearAndCreateShipmentsEnabled)
+                   return await UpdateShipmentsForShippingChoice(shippingChoiceGroups, salesOrder, contact, request, shippingInstructions, othersShippingOptions, leadTimeDetails);
+
+               if (salesOrder.Shipments.Count > 1 && shippingChoiceGroups.Count() == 1 && shippingChoiceGroups.FirstOrDefault().All(item => !item.IsTwoTouchItem) && shippingChoiceGroups.FirstOrDefault().Any(item => item.IsMABDItem))
+                   return await ClearAndCreateShipments();
+
+               return await ModifyShipments(shippingChoiceGroups, salesOrder, contact, request, shippingInstructions, othersShippingOptions, leadTimeDetails);
+           }
+
+           return await base.UpdateShipmentForShippingChoice(shippingChoiceGroups, salesOrder, contact, request, shippingInstructions, othersShippingOptions, leadTimeDetails);
+
+           async Task<bool> ClearAndCreateShipments()
+           {
+               var clearShipments = await ClearShipments(salesOrder.Id, salesOrder.Shipments);
+               if (!clearShipments) return false;
+
+               var shippingChoiceGroup = shippingChoiceGroups.FirstOrDefault();
+               var allItems = shippingChoiceGroup.ToList();
+
+               //Create Ready-Stock Shipment
+               var readyStockItems = allItems?.Where(item => item.IsPickOrder);
+               if (IsReadyStockEnabled(request.Context?.IsPremierCustomer ?? false) && readyStockItems.Any())
+               {
+                   var readyStockParentItems = readyStockItems?.Where(x => x.ParentItemId.IsNullOrEmpty() || x.ParentItemId == Guid.Empty.ToString())?.ToList();
+                   var allChildItems = allItems?.Where(x => !x.ParentItemId.IsNullOrEmpty() && x.ParentItemId != Guid.Empty.ToString())?.ToList();
+
+                   foreach (var parentItem in readyStockParentItems)
+                   {
+                       var readyStockItemsParentAndChild = new List<ItemLevelShippingChoice>();
+                       readyStockItemsParentAndChild.AddRange(_itemHelper.GetChildItems(parentItem.ItemId, allChildItems, new List<ItemLevelShippingChoice>()));
+                       readyStockItemsParentAndChild.Add(parentItem);
+
+                       var createReadyStockShipment = await CreateShipmentAndLeadTimeOnShippingChoiceUpdate(shippingChoiceGroup.Key, shippingChoiceGroup.FirstOrDefault().ShipmentName,
+                           contact, readyStockItemsParentAndChild, request, salesOrder, othersShippingOptions, leadTimeDetails,
+                           arriveByDate: readyStockItemsParentAndChild.Any(item => item.IsMABDItem) ? readyStockItemsParentAndChild.Select(item => item.EstimatedDeliveryDateMax).Max() : null);
+                       allItems?.RemoveAll(item => readyStockItemsParentAndChild.Any(y => y.ItemId.Equals(item.ItemId)));
+
+                       if (!createReadyStockShipment) return false;
+                   }
+               }
+
+               //Create MABD Shipment
+               var mabdShippingChoiceItems = allItems?.Where(item => item.IsMABDItem && !item.IsPickOrder);
+
+               var arriveByDate = mabdShippingChoiceItems.Select(item => item.EstimatedDeliveryDateMax).Max();
+
+               var createMABDShipment = await CreateShipmentAndLeadTimeOnShippingChoiceUpdate(shippingChoiceGroup.Key, shippingChoiceGroup.FirstOrDefault().ShipmentName,
+                   contact, mabdShippingChoiceItems.ToList(), request, salesOrder, othersShippingOptions, leadTimeDetails, arriveByDate);
+               allItems.RemoveAll(item => mabdShippingChoiceItems.Any(y => y.ItemId.Equals(item.ItemId)));
+               if (!createMABDShipment) return false;
+
+               //Create non-MABD Shipment
+               var nonMabdShippingChoiceItems = allItems?.Where(item => !item.IsMABDItem && !item.IsPickOrder);
+
+               var createNonMABDShipment = await CreateShipmentAndLeadTimeOnShippingChoiceUpdate(shippingChoiceGroup.Key, shippingChoiceGroup.FirstOrDefault().ShipmentName,
+                   contact, nonMabdShippingChoiceItems.ToList(), request, salesOrder, othersShippingOptions, leadTimeDetails);
+               if (!createNonMABDShipment) return false;
+
+               return true;
+           }
+       }
 ---
 
  private async Task<bool> ModifyShipments(SalesOrderDataModel salesOrder, ShipmentRequest shipmentRequest)
