@@ -1,3 +1,6 @@
+            _itemHelperMock.Setup(itemhelper => itemhelper.GetChildItems(It.IsAny<string>(), It.IsAny<IEnumerable<ItemSnapshotDetail>>(), It.IsAny<List<ItemSnapshotDetail>>())).Returns(new List<ItemSnapshotDetail>() { new ItemSnapshotDetail() { ItemId = "ItemId1" } });
+
+ System.ArgumentNullException : Value cannot be null. (Parameter 'collection')
 ---
        public override async Task<bool> UpdateShipmentForShippingChoice(IEnumerable<IGrouping<string, ItemLevelShippingChoice>> shippingChoiceGroups, SalesOrderDataModel salesOrder, Contact contact, ShipmentShippingChoiceRequest request,
            string shippingInstructions, string[] othersShippingOptions, List<LeadTimeDetail> leadTimeDetails)
