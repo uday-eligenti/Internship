@@ -1,3 +1,9 @@
+--
+return twoTouchItems.All(item => fulfillmentChoiceResponse.OutputItems
+                                  .FirstOrDefault(opItem => opItem.ItemId.EqualsOrdinalIgnoreCase(item.ItemId))
+                                  .ShippingOptions.Any(shpOp => shpOp.OptionId.EqualsOrdinalIgnoreCase(item.TwoTouchShippingMethod)));
+--
+
             _itemHelperMock.Setup(itemhelper => itemhelper.GetChildItems(It.IsAny<string>(), It.IsAny<IEnumerable<ItemSnapshotDetail>>(), It.IsAny<List<ItemSnapshotDetail>>())).Returns(new List<ItemSnapshotDetail>() { new ItemSnapshotDetail() { ItemId = "ItemId1" } });
 
  System.ArgumentNullException : Value cannot be null. (Parameter 'collection')
