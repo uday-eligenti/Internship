@@ -1,3 +1,64 @@
+        public override async Task<bool> UpdateShipment(ShipmentRequest shipmentRequest, SalesOrderDataModel salesOrder)
+        {
+            var leadTimeDetails = new List<LeadTimeDetail>();
+            bool ftIsTwoTouchApplicableForProduct = _featureTogglesService.GetFeatureTogglesAsync().Result.IsTwoTouchApplicableForProduct;
+            _shipmentHelper.AddShippingContactProperties(shipmentRequest.PMCEnable, shipmentRequest.ShippingContact);
+            shipmentRequest.ShippingContact = await _shippingContactService.GetContactServiceShippingContact(shipmentRequest.Context,
+                                 shipmentRequest.ContactReferences) ?? shipmentRequest.ShippingContact;
+            var incotermsSelection = shipmentRequest.IncotermsSelection != null ? shipmentRequest.IncotermsSelection : salesOrder.GetIncotermsSelection();
+            var fulfillmentChoiceServiceRequest = _shipmentChoiceService.FulfillmentChoiceServiceRequestMapper(shipmentRequest.Context, shipmentRequest.ShippingContact,
+                                    shipmentRequest.ItemSnapshotDetails, salesOrder.PaymentMethods,
+                                    salesOrder.Id, false, null,
+                                    selectedShippingOption: null, false, false, incotermsSelection, salesOrder.GetOriginalDocumentRequired());
+            var fulfillmentChoiceResponse = await _shipmentChoiceService.GetFulfillmentChoice(fulfillmentChoiceServiceRequest);
+
+            #region "2T Shipments "
+            await UpdateTwoTouchShipments(shipmentRequest, salesOrder, leadTimeDetails, fulfillmentChoiceResponse);
+
+            if (GetAllNon2TSalesorderShipments().IsNullOrEmpty() && fulfillmentChoiceResponse.MaxLeadTimeItemId != Guid.Empty && leadTimeDetails.Any())
+            {
+                return await _leadTimeDetailsService.UpdateLeadTimeDetailsToSalesOrder(leadTimeDetails, fulfillmentChoiceResponse.MaxLeadTimeItemId.ToString(), salesOrder.Id);
+            }
+            #endregion
+
+            if (GetAllNon2TSalesorderShipments().All(ShipmentItemsIsEligibleForSameShipment))
+            {
+                foreach (var shipment in GetAllNon2TSalesorderShipments().NotNullItems())
+                {
+                    await UpdateSalesorderShipment(shipment, shipmentRequest, fulfillmentChoiceResponse, salesOrder, leadTimeDetails);
+                }
+
+                await RemoveAppliedStateExtendedProperties(salesOrder.Id, salesOrder.GetAppliedStateExtendedProperties());
+
+                if (fulfillmentChoiceResponse.MaxLeadTimeItemId != Guid.Empty && leadTimeDetails.Any())
+                {
+                    return await _leadTimeDetailsService.UpdateLeadTimeDetailsToSalesOrder(leadTimeDetails, fulfillmentChoiceResponse.MaxLeadTimeItemId.ToString(), salesOrder.Id);
+                }
+                return await _leadTimeDetailsService.ClearLeadTimeDetails(salesOrder.Id);
+            }
+            else
+            {
+                var modifyShipmentsStatus = await ModifyShipments(salesOrder, shipmentRequest);
+                await RemoveAppliedStateExtendedProperties(salesOrder.Id, salesOrder.GetAppliedStateExtendedProperties());
+                return modifyShipmentsStatus;
+            }
+
+            bool ShipmentItemsIsEligibleForSameShipment(SalesOrderShipment shipment)
+            {
+                return _shipmentService.IsEligibleForSameShipment(shipment, shipmentRequest.ItemSnapshotDetails, fulfillmentChoiceResponse.OutputItems, shipment.ShippingMethod);
+            }
+
+            IEnumerable<SalesOrderShipment> GetAllNon2TSalesorderShipments()
+            {
+                return ftIsTwoTouchApplicableForProduct
+                       ? salesOrder.Shipments.AllNon2TShipments(shipmentRequest.ItemSnapshotDetails)
+                       : salesOrder.Shipments;
+            }
+
+        }
+
+
+
 --
 return twoTouchItems.All(item => fulfillmentChoiceResponse.OutputItems
                                   .FirstOrDefault(opItem => opItem.ItemId.EqualsOrdinalIgnoreCase(item.ItemId))
