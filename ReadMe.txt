@@ -1,3 +1,7 @@
+            _pricingServiceRepository.Setup(x => x.GetShippingCharge(It.IsAny<ShippingChargeRequest>()))
+                .Returns(Task.FromResult(new ShippingChargeDetailsResponse()null));
+
+--
 public DateTime? GetEddFromLeadTimeDetailsForMABDShipmentItems(PriceAndShipmentDataModel priceAndShipmentDataModel, string shipmentId = null)
         {
             if (priceAndShipmentDataModel.LeadtimeDetails.IsNotNullOrEmpty())
