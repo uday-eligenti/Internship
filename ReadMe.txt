@@ -1,3 +1,23 @@
+public DateTime? GetEddFromLeadTimeDetailsForMABDShipmentItems(PriceAndShipmentDataModel priceAndShipmentDataModel, string shipmentId = null)
+        {
+            if (priceAndShipmentDataModel.LeadtimeDetails.IsNotNullOrEmpty())
+            {
+                var MABDShipment = shipmentId != null
+                                      ? priceAndShipmentDataModel.Shipments.FirstOrDefault(shipment => shipment.Id == shipmentId && shipment.IsMABDShipment())
+                                      : priceAndShipmentDataModel.Shipments.FirstOrDefault(shipment => shipment.IsMABDShipment());
+                if (MABDShipment == null) return default;
+                // salesOrder MABD item to filter the MABD leadtime details
+                var salerOrderMABDItems = priceAndShipmentDataModel.Items.Where(SoItem => MABDShipment.Items.Any(shipmentItem => shipmentItem.ItemId.EqualsOrdinalIgnoreCase(SoItem.Id))).ToList();
+                // using MABD Item OpenBasket item id to retrieve MABD item lead time details
+                var salesOrderMABDItemsleadTimedetails = priceAndShipmentDataModel.LeadtimeDetails.Where(leadtimedetail => salerOrderMABDItems.Any(item => item.OpenBasketItemId.EqualsOrdinalIgnoreCase(leadtimedetail.OpenBasketItemId)));
+                //return max edd of MABD item Lead Time details
+                return salesOrderMABDItemsleadTimedetails.Where(leadtimedetail => leadtimedetail.EstimatedDeliveryDateRange.Max?.LocalDateTime != DateTime.MinValue)
+               .Select(leadtimedetail => leadtimedetail.EstimatedDeliveryDateRange.Max?.LocalDateTime).Max();
+            }
+            return default;
+        }
+
+--
 public bool IsInvalidMustArriveByDate(PriceAndShipmentDataModel priceAndShipmentDataModel, string shipmentId,string country, bool isEddFlow)
 {
     if (_featureTogglesService.GetFeatureTogglesAsync().Result.IsMABDValidationApplicable && !priceAndShipmentDataModel.HasMultiShipments && !isEddFlow)
