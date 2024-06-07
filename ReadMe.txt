@@ -321,3 +321,5 @@ Segment-selector- typography changes
 4. CCS-5910
 The credit card type images lack alt text, making them inaccessible to screen reader users
 5. CCS-5937: Extra gap is coming between standard delivery date and mabd data section
+6. CCS-6450
+typography changes - Change the title "Shipping"
