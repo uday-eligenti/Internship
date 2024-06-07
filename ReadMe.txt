@@ -123,282 +123,201 @@ BUG: solved git conflicts, fixed UI flicking issue caused by react-json-view cop
 - adjust alert height
 - adjust flip card links alignment
 ---
-
-public async Task<bool> CreateOrUpdateShipment(QuoteShipmentRequest shipmentRequest)
-        {
-            var quote = await GetQuoteAsync(shipmentRequest.QuoteId);
-            shipmentRequest.Context = await _shippingContactService.AssignCustomerNumbers(shipmentRequest.Context, quote);
-            if (quote.Shipments.IsNullOrEmpty())
-            {
-                var createRequest = _quoteShippingMapper.MapQuoteShipmentCreationRequest(shipmentRequest, quote);
-                return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).CreateQuoteShipments(createRequest);
-            }
-            if (quote.Shipments.Count == 1)
-            {
-                shipmentRequest.SelectedShippingOption = quote.Shipments.First().ShippingMethod;
-            }
-            return await _quoteShipmentServiceFactory.GetShipmentService(shipmentRequest.Context?.Region).UpdateQuoteShipments(shipmentRequest, quote);
-        }
---------------
-public async Task<bool> DeleteShipments(string quoteId, List<QuoteShipment> shipments, List<QuoteMultishipmentOperationDetail> multishipmentOperationDetails = null, bool isEnableMultishipmentOperationEndpoint = false)
-        {
-            foreach (var shipment in shipments)
-            {
-                if (isEnableMultishipmentOperationEndpoint)
-                {
-                    QuoteCreateOrUpdateShipmentRequest createShipment = new QuoteCreateOrUpdateShipmentRequest();
-                    createShipment.ShipmentId = shipment.Id;
-                    multishipmentOperationDetails.Add(MapQuoteMultishipmentsDetails(createShipment, PatchOperationType.Remove));
-                }
-                else
-                {
-                    var clearshipment = await _quoteRepository.DeleteShipment(quoteId, shipment.Id);
-                    if (!clearshipment) return false;
-                }
-            }
-            return true;
-        }
-
---
-public async Task<bool> UpdateVatpNotes(QuoteVatpNotesRequest request)
-        {
-            var quote = await GetQuoteAsync(request.QuoteId);
-            bool result = true;
-            if (quote != null)
-            {
-                foreach (var shipment in quote.Shipments)
-                {
-                    result = await _quoteShipmentService.UpdateShipment(new QuoteShipmentUpdationRequest
-                    {
-                        ShipmentId = shipment.Id,
-                        DeliveryMethod = shipment.ShippingMethod,
-                        Context = request.Context,
-                        VatpNotes = request.VatpNotes
-                    }, request.QuoteId, quote, multishipmentOperationList);
-                }
-                await PatchQuoteMultishipments(multishipmentOperationList, quote.Id);
-            }
-            return result;
-        }
-
---
-async Task<bool> CreateShippingChoiceShipment(IGrouping<string, ItemLevelShippingChoice> shippingChoiceGroup)
-            {
-                var createQuoteRequest = _quoteShippingMapper.MapQuoteShippingChoiceRequest(quoteShipment, shippingChoiceGroup, request);
-                createQuoteRequest.Items = BuildQuoteItemDetails(shippingChoiceGroup.ToList(), quote, request.SkipShipmentItemDetails);
-                createQuoteRequest.FuturisticDeliveryDate = fdd;
-                if (isEnableMultishipmentOperationEndpoint)
-                {
-                    multishipmentOperationList.Add(MapQuoteMultishipmentsDetails(createQuoteRequest, PatchOperationType.Modify));
-                    return true;
-                }
-                else
-                {
-                    return await _quoteRepository.CreateQuoteShipment(createQuoteRequest, request.QuoteId);
-                }
-            }
----------
- public SalesOrderUpdateShipmentRequest GetUpdateShipmentsRequest(MultiShipServiceShipment multiShipmentRequest, string shipmentId,
-            string[] shippingOptions, FulfillmentChoiceContext context, Dictionary<string, string> salesOrderExtendedProperties, string salesOrderId = "")
-        {
-            List<ShipmentItemReference> shipmentItems;
-            string shipmentMethod, shipmentName, shippingInstructions, estimatedDeliveryDateMax, installationInstructions;
-            DesignatedCarrier designatedCarrier;
-            var shippingContactReferences = _shippingContactService.GetContactReference(context, multiShipmentRequest?.ShippingContact?.ContactReferenceUrl);
-            GetMultiShipmentRequest(multiShipmentRequest, out shipmentItems, out shipmentMethod, out shipmentName, out shippingInstructions,
-                out designatedCarrier, out estimatedDeliveryDateMax, out installationInstructions);
-            //Reset MABD invalid Extended Property
-            if ((context.Region.ToUpper() == "EMEA" || context.Region.ToUpper() == "APJ") && !string.IsNullOrWhiteSpace(salesOrderId))
-            {
-                salesOrderExtendedProperties.TryGetValue(ExtendedPropertyKeys.IsInvalidMustArriveByDate + "-" + shipmentId, out string keyValue);
-                if (!string.IsNullOrEmpty(keyValue) && keyValue.EqualsOrdinalIgnoreCase("true"))
-                    _salesOrderServiceRepository.PutExtendedProperty(salesOrderId, ExtendedPropertyKeys.IsInvalidMustArriveByDate + "-" + shipmentId, "false");
-                salesOrderExtendedProperties.TryGetValue(ExtendedPropertyKeys.IsInvalidMabdWhenPaymentApplied + "-" + shipmentId, out string triggredValue);
-                if (!string.IsNullOrEmpty(triggredValue) && triggredValue.EqualsOrdinalIgnoreCase("true"))
-                    _salesOrderServiceRepository.PutExtendedProperty(salesOrderId, ExtendedPropertyKeys.IsInvalidMabdWhenPaymentApplied + "-" + shipmentId, "false");
-            }
-            return new SalesOrderUpdateShipmentRequest
-            {
-                ShipmentId = shipmentId,
-                ShippingMethod = shipmentMethod,
-                ShipmentName = shipmentName,
-                ShippingContact = (context != null && context.IsShippingContactDeprecated) ? null : multiShipmentRequest?.ShippingContact,
-                Instructions = shippingInstructions,
-                Items = shipmentItems?.ToArray(),
-                ShippingOptions = shippingOptions,
-                DesignatedCarrier = designatedCarrier,
-                InboundShipMethod = null,
-                InstallationInstructions = installationInstructions,
-                GroupId = multiShipmentRequest.GroupId,
-                ContactReferences = shippingContactReferences,
-                ArriveByDate = GetMABDForSaleOrder(multiShipmentRequest, context),
-                FuturisticDeliveryDate = GetFDDForSaleOrder(multiShipmentRequest)
-            };
-    }
+27/6/23:
+1. commented delete opotions in dropdown
+2. changed method from get to post
+3. raised both MR's
+4. looking into useContext
 
 
 
-------        [Fact]
-        public void GetQuoteOperationsRequest_ReturnsValidOperationDetailForCreate()
-        {
-            // Arrange
-            var multiShipServiceShipment = new QuoteMultiShipServiceShipment
-            {
-                ShipmentShippingChoice = new QuoteShipmentShippingChoiceRequest
-                {
-                    ItemLevelShippingChoices = new List<QuoteItemLevelShippingChoice>
-                {
-                    new QuoteItemLevelShippingChoice { OptionId = "Option1" }
-                },
-                    DesignatedCarrier = new DesignatedCarrier {  },
-                    ShipmentName = "Shipment123",
-                    ShippingInstructions = "Handle with care",
-                    InstallationInstructions = "Install carefully",
-                },
-                ShippingContact = new Models.Common.Shipping.Contact {  },
-                GroupId = "Group123"
-            };
+4/7/23:
+1. redis page redirection for authentication
+- redirect to an authentication page on clicking on redis page .. 
+- waiting for valid client id from sahithi
 
-            string shipmentId = "ShipmentId123";
-            PatchOperationType operationType = PatchOperationType.Add;
+5 to 12:- helping backend team
 
-            // Act
-            var result = _sut.GetQuoteOperationsRequest(multiShipServiceShipment, shipmentId, operationType);
+13/7/23:
 
-            // Assert
-            Assert.NotNull(result);
-            Assert.Equal(operationType, result.OperationType);
-            Assert.Equal(shipmentId, result.ResourceId);
-            Assert.NotNull(result.Value);
-            Assert.Equal("Option1", result.Value.ShippingMethod);
-            Assert.Equal("Shipment123", result.Value.ShipmentName);
-            Assert.Equal("Handle with care", result.Value.Instructions);
-            Assert.Equal("Install carefully", result.Value.InstallationInstructions);
-            Assert.NotNull(result.Value.Items);
-            Assert.Equal("Group123", result.Value.GroupId);
-        }
+-added perf url in  testharness
+-still didn't got clientId ..so helping backend team
 
+untill 18: added getuser endpoint
 
+18/7/23:
 
+- add new card for clear Cache page
+- add tabs for inMemory and redis
+- inMemory:
+	data center dropdown:PC1,Non prod,S3B ,input feilds for pcf application,cachekey, action dropdown :get ,delete, box to show data
+	one get and one delete end points added in new inMemoryCacheService.tsx, changes cachekey url , added condition for key in delete url
+	mr raised and merged 
 
-public QuoteMultishipmentOperationDetail GetQuoteOperationsRequest(QuoteMultiShipServiceShipment multiShipServiceShipment, string shipmentId, PatchOperationType operationType)
-        {
-            string shipmentMethod = multiShipServiceShipment?.ShipmentShippingChoice?.ItemLevelShippingChoices[0]?.OptionId;
-            return new QuoteMultishipmentOperationDetail
-            {
-                OperationType = operationType,
-                ResourceId = shipmentId,
-                Value = new QuoteCreateOrUpdateShipmentRequest()
-                {
-                    FuturisticDeliveryDate = multiShipServiceShipment?.ShipmentShippingChoice != null ? GetFDDForQuote(multiShipServiceShipment) : String.Empty,
-                    ShippingContact = multiShipServiceShipment?.ShippingContact,
-                    InstallationInstructions = multiShipServiceShipment?.ShipmentShippingChoice?.InstallationInstructions,
-                    Items = multiShipServiceShipment?.ShipmentShippingChoice != null ? BuildQuoteItemDetails(multiShipServiceShipment?.ShipmentShippingChoice?.ItemLevelShippingChoices) : null,
-                    ShippingMethod = shipmentMethod,
-                    DesignatedCarrier = shipmentMethod.IsNotNullOrEmpty() ? shipmentMethod.EqualsOrdinalIgnoreCase(DeliveryMethodsConstants.DesignatedCarrierCode) 
-                ? multiShipServiceShipment?.ShipmentShippingChoice?.DesignatedCarrier ?? new DesignatedCarrier() : null : null,
-                    ShipmentName = multiShipServiceShipment?.ShipmentShippingChoice?.ShipmentName,
-                    Instructions = multiShipServiceShipment?.ShipmentShippingChoice?.ShippingInstructions,
-                    GroupId = multiShipServiceShipment?.GroupId
-                }
-            };
-        }
+19/7/23: sahithi added sso auth changes
+
+- redesigned cache page . moved redis key list out of tabs, 
+- added sticky header for key table and moved search bar to header added hide and show for it
+- worked on rendering issue with sahithi
+- 
+
+20
+
+- added table for data in inmemory
+- added funcionality for getting data for both redis and inMemory onClick of key
+- solved 'page reloading on delete btn click' issue
+- fixed 'control going to default tab on key click' issue 
+
+21
+
+- On successful deletion we have to show a message 
+- added alert on both successful and failure of delete.
+- added close button for alert
 
 
---------
-        public ExtendedPropertiesCollection GetFddtExtendedProperties(ExtendedPropertiesCollection extendedPropertiesCollection, string country, bool isLargeOrder, Dictionary<string, string> itemSupportabilityInfo = null, Dictionary<string, string> existingSalesOrderExtendedProperties = null)
-        {
-            if (isLargeOrder)
-            {
-                extendedPropertiesCollection.Add(ExtendedPropertyKeys.IsLargeOrder, isLargeOrder.ToString().ToLower());
-                if (country?.ToUpper() == "US" || country?.ToUpper() == "CA")
-                {
-                    //Remove exitsing extended Properties and Reset if LargeOrder for part
-                    if (existingSalesOrderExtendedProperties != null)
-                    {
-                        var extendedPropertiesSupportability = existingSalesOrderExtendedProperties.Where(c => c.Key.Contains("Supportability"));
-                        extendedPropertiesSupportability.ToList().ForEach(c =>
-                        {
-                            extendedPropertiesCollection.Add(c.Key, string.Empty);
-                        });
-                    }
-                    if (itemSupportabilityInfo != null)
-                    {
-                        itemSupportabilityInfo.ForEach(item =>
-                        {
-                            if (existingSalesOrderExtendedProperties != null && existingSalesOrderExtendedProperties.ContainsKey(string.Format(ExtendedPropertyKeys.Supportability, item.Key)))
-                            {
-                                extendedPropertiesCollection.ExtendedProperties.FirstOrDefault(c => c.Key.Equals(string.Format(ExtendedPropertyKeys.Supportability, item.Key))).Value = JsonConvert.SerializeObject(new GenericField { FieldKey = "Supportability", FieldValue = item.Value });
-                            }
-                            else
-                                extendedPropertiesCollection.Add(string.Format(ExtendedPropertyKeys.Supportability, item.Key), JsonConvert.SerializeObject(new GenericField { FieldKey = "Supportability", FieldValue = item.Value }));
-                        });
-                    }
-                }
-            }
-            else
-            {
-                if (existingSalesOrderExtendedProperties != null)
-                {
-                    //Remove exitsing extended Properties by setting to empty
-                    extendedPropertiesCollection.Add(ExtendedPropertyKeys.IsLargeOrder, string.Empty);
-                    if (country?.ToUpper() == "US" || country?.ToUpper() == "CA")
-                    {
-                        var extendedPropertiesSupportability = existingSalesOrderExtendedProperties.Where(c => c.Key.Contains("GenericField[FieldKey='Supportability']"));
-                        extendedPropertiesSupportability.ToList().ForEach(c =>
-                        {
-                            extendedPropertiesCollection.Add(c.Key, string.Empty);
-                        });
-                    }
-                }
-            }
-            return extendedPropertiesCollection;
-        }
---
- public async Task<QuoteDataModel> GetQuoteAsync(string quoteId)
- {
-     ValidateSourceId(quoteId);
-     var quoteUri = _quoteConfigurationSettings.GetRequestUri(QuoteEndpointVersion, quoteId);
-     using (var cancellationTokenSource = new CancellationTokenSource(requestTimeout))
-     {
-         HttpResponseMessage quoteResponse = new HttpResponseMessage();
-         try
-         {
-             cancellationTokenSource.Token.ThrowIfCancellationRequested();
-             quoteResponse = await _quoteClient.GetAsync(quoteUri, cancellationTokenSource.Token);
+23
 
-             if (!quoteResponse.IsSuccessStatusCode)
-             {
-                 return default;
-             }
-
-             return JsonConvert.DeserializeObject<QuoteDataModel>(await quoteResponse.Content.ReadAsStringAsync());
-         }
-         catch (OperationCanceledException ex)
-         {
-             throw new Exception(ExceptionLog.LogException(ex.ToString(), quoteResponse));
-         }
-     }
+- raised MR with cherrypick given by sahithi
+- replaced delete options(SUCCESS,FAILURE) from hardcoded strings with enums for better code. 
+- added functionality to call get end point ,if the response has isdeleted set to true, fetch the data again for that key just to verify it is really deleted 
+- mr's merged
 
 
-        // g
-        [Fact]
-        public async Task GetQuoteAsync_catch()
-        {
-            //arrange
+31
 
-            //action
-            await Assert.ThrowsAsync<Exception>(() => _sut.GetQuoteAsync("quote"));
-        }
- Message: 
-   System.NotSupportedException : Unsupported expression: c => c.GetAsync(It.IsAny<Uri>(), QuoteRepositoryTests.<>c__DisplayClass16_0.cancellationTokenSource.Token)
-   Non-overridable members (here: HttpClient.GetAsync) may not be used in setup / verification expressions.
+- In inmemory Change the name of the Delete button to Delete All
+- Name of the instance column to Instance Index
+- Add another column which will have delete buttons for each row
+- On click of the button should call back end API (will give the endpoint later) with Service Name, Instance Index and the Cache Key 
 
-        //
-Message: 
-  Assert.Throws() Failure
-  Expected: typeof(System.Exception)
-  Actual:   typeof(Moq.MockException): HttpMessageHandler.SendAsync(Method: GET, RequestUri: 'http://g2vmquosvc01.olqa.preol.dell.com:1006/V3/quotes/quote', Version: 1.1, Content: <null>, Headers:
-  {
-    Authorization: test 1234
-  }, CancellationToken) invocation failed with mock behavior Strict.
+1/8:
+- make tab fixed height and add scroll on overflow
+- add icons for deletion success or failed . for failed x and success tick for delete all and delete single instance
+
+2/8/2023
+- solved git conflicts.
+ worked on UI changes. 	solved git conflicts for raised mr. added UI changes : loading animation, table scrool , adjusted styles.
+
+3/8/2023	Uday		worked on table styling. adding new functionality to compare redis and inmemory table instances.	worked on table styling. adding new functionality to compare redis and inmemory table instances.
+
+4/8/2023	uday		adding new functionality to compare redis and inmemory table instances.	adding new functionality to compare redis and inmemory table instances.	inprogress
+
+7/8/2023 : 
+- compariosion task,
+- reset inmemory onBlur of key input{
+
+8/8/2023:
+
+- done comparision task tested with sample inputs fix bugs
+
+9/8/2023:
+
+- fixed UI flicking issue caused by react-json-view copy button
+
+
+14:
+
+- testing UI: found issues
+	1. increase cackey input size as we can't see full key value.
+	2. flip card zooming to 110% causes overflow - fixed by d-flex
+	3. in sales order page : contact details tab no margin Bottom
+	4. in cups validator spinner is not in center
+	5. in observebility - splunk tab - card headers are not filled to 100%
+	
+
+
+28:
+- Sahithi clearly explained about backend task(sending same object in redis get)
+- verified UI bug fixes with sahithi (done in last week)
+
+29:
+- add desclaimer in inMemory
+- adjust alert height
+- adjust flip card links alignment
+
+30,31: 
+- (sending same object in redis get) deserializing data 
+
+
+
+5-9-23 - 8-9-23:
+-> exploring teams api and gitlap api
+
+26/9/23:
+-> adding p11,s11 datacenter links in both frontend and backend
+
+12/10/23:
+
+-> tested previous mr on UI inmemory cache . found errors for some pcf apps.
+-> fixed loading spinner not comming on key change issue
+-> tested changes of backend for 1st bug
+-> working on delete btn access condition
+NonProdRead , ProdRead--- no delete button
+
+NonProdReadWrite --- delete button only in Non prod
+
+ ProdReadWrite -- delete button in both 
+16/10/23:
+-> tested delete access by changing my access in backend api
+
+17:
+-> solved comments 
+-> working on UI bugs found in redis and in memory:
+(Delete notification issue with redis,The dropdown items are not getting reset in in memory in some cases,In memory on delete tick icon is not going even after the data is reset)
+
+18:
+-> removed comments,logs.solved alert and tick icon issues. mr raised
+------------------------
+req
+---------------
+
+21/10/2023-20/12/2023:
+
+worked on code coverage of ship service
+
+19/2/24:
+
+new devops team with sajan
+
+
+20/02/24:
+1. worked on UI issue in redis page.(showing not connected icon for a second in redispage onload)
+
+21/02.24:
+1. working on GetUsers UI page.
+2. worked on adding backend endpoint with pardu.
+
+
+
+22/02/24:
+
+1. worked on getUsers endpoint(backend).
+2. integrated backend to users front end page
+3. added icons, sorting in user table
+4. deployed and tested changes
+5. started DAD score report page designing.
+
+23/02/24:
+
+1. working on DAD status report page
+2. added refresh functionality
+3. added download to excel functionality
+4. added present and previous score functionality(temporary)
+
+-------------
+21/03/24:
+got into new team.
+1. call with pranita. they work on handling ux of entire unified checkout mfe. with html css js
+2. kt from 22 march.
+
+------------------
+UX TEAM DEFECTS:
+1.CCMF-4086
+[Premier Convergence FED] [V4]:[G4] Spacing issue on thank you page
+2. CCMF-4497
+DDS2.0-Change radio button label color to #0E0E0E
+3. CCMF-5018
+Segment-selector- typography changes
+4. CCS-5910
+The credit card type images lack alt text, making them inaccessible to screen reader users
+5. CCS-5937: Extra gap is coming between standard delivery date and mabd data section
