@@ -1,3 +1,67 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+const nlp = require('compromise');
+
+// Initialize Express
+const app = express();
+
+// Middleware
+app.use(bodyParser.json());
+
+// Connect to MongoDB
+
+mongoose.connect('mongodb+srv://uday:aclWllkmfeUKBMmp@cluster0.q7cejgj.mongodb.net/?retryWrites=true&w=majority', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => {
+    console.log("Connected to MongoDB Atlas");
+  })
+  .catch((error) => {
+    console.error("Error connecting to MongoDB Atlas:", error.message);
+  });
+
+// Define url Schema
+const urlSchema = new mongoose.Schema({
+  env: String,
+  url: String,
+})
+
+const url = mongoose.model('url', urlSchema);
+
+// Home route
+app.get('/', (req, res) => {
+  res.send('Welcome to the NLP Chatbot API!');
+});
+
+// Query route
+app.post('/query', async (req, res) => {
+  const urlQuery = req.body.query;
+  const doc = nlp(urlQuery);
+  const people = doc.people().out('array');
+
+  if (people.length > 0) {
+    const env = people[0];
+    const url = await url.findOne({ env: new RegExp('^' + env + '$', 'i') }); // Case insensitive search
+
+    if (url) {
+      res.json({ env: url.env, url: url.url });
+    } else {
+      res.status(404).json({ error: 'url not found' });
+    }
+  } else {
+    res.status(400).json({ error: 'Invalid query' });
+  }
+});
+
+// Start the server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+
+
             _pricingServiceRepository.Setup(x => x.GetShippingCharge(It.IsAny<ShippingChargeRequest>()))
                 .Returns(Task.FromResult(new ShippingChargeDetailsResponse()null));
 
