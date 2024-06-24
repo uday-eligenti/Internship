@@ -1,3 +1,13 @@
+business usecases:
+Used during LOD review to validate the version before a release
+Helps developers in debugging by fetching all the checkout related data from back end apis.
+serves as dashboard (one stop for all the available tools)
+Used for Monitoring and Maintaining different Cached data's of Micro Services  
+before tool:
+We never had a Version validator before and solely dependent on the versions updated by the developers which created version mismatches after deployment to Prod.
+Debugging would have been hard because to get all the relevant info one have to hit at least 2 different services. Now all they have to do is open the tool in a separate browser. This would significantly reduce the debugging time.
+There was no centralized place to share the knowledge of the existing tools and most of which use to lie with the managers and leads. Now with the dashboard it is made available in one place
+There was no tool for cache, Cache busting was tedious and only few with the knowledge of the cache providers were able to do it. Now it is made available to everyone , not needing  any prior knowledge.
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
